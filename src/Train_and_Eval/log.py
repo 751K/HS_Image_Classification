@@ -3,7 +3,17 @@ import os
 from datetime import datetime
 
 
-def setup_logger(save_dir):
+def setup_logger(save_dir: str) -> logging.Logger:
+    """
+    设置并配置一个日志记录器。
+
+    Args:
+        save_dir (str): 保存日志文件的目录路径。
+
+    Returns:
+        logging.Logger: 配置好的日志记录器实例。
+
+    """
     # 创建一个日志记录器
     logger = logging.getLogger('HSI_Classification')
     logger.setLevel(logging.INFO)

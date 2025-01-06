@@ -18,14 +18,14 @@ from src.datesets.IndianPinesDataset import load_data, prepare_data, create_data
 
 def main():
     # HSI 任务下的Batch Size 指的是每一次处理的像素数量，而不是每一次处理的图像数量
-    num_epochs = 10
-    batch_size = 256
+    num_epochs = 100
+    batch_size = 64
     num_workers = 0
     set_seed(42)
 
     # 创建保存模型和结果的目录
     timestamp = datetime.now().strftime("%m%d_%H%M%S")
-    save_dir = f"results/ResNet2D_{timestamp}"
+    save_dir = os.path.join("..", "results", f"ResNet2D_{timestamp}")
     os.makedirs(save_dir, exist_ok=True)
 
     # 设置日志记录器

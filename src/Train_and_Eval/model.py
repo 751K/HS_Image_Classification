@@ -1,15 +1,20 @@
+import json
 import logging
 import random
 
 import numpy as np
+import seaborn as sns
 import torch
 from matplotlib import pyplot as plt
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-import json
-import seaborn as sns
+from sklearn.metrics import confusion_matrix
 
 
 def set_seed(seed):
+    """
+    设置随机种子以确保结果可复现。
+    Args:
+        seed (int): 用于随机数生成器的种子值。
+    """
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -21,6 +26,22 @@ def set_seed(seed):
 
 
 def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler, num_epochs, device, writer, logger):
+    """
+    训练模型。
+
+    Args:
+        model (torch.nn.Module): 要训练的模型。
+        train_loader (torch.utils.data.DataLoader): 训练数据加载器。
+        val_loader (torch.utils.data.DataLoader): 验证数据加载器。
+        criterion (torch.nn.Module): 损失函数。
+        optimizer (torch.optim.Optimizer): 优化器。
+        scheduler (torch.optim.lr_scheduler._LRScheduler): 学习率调度器。
+        num_epochs (int): 训练的轮数。
+        device (torch.device): 设备（CPU或GPU）。
+        writer (torch.utils.tensorboard.SummaryWriter): TensorBoard的记录器。
+        logger (logging.Logger): 日志记录器。
+    """
+
     best_val_accuracy = 0
     best_model = None
 
@@ -72,6 +93,19 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
 
 
 def evaluate_model(model, data_loader, criterion, device, logger):
+    """
+    评估模型在给定数据加载器上的表现。
+
+    Args:
+        model (torch.nn.Module): 要评估的模型。
+        data_loader (torch.utils.data.DataLoader): 用于评估的数据加载器。
+        criterion (torch.nn.Module): 损失函数。
+        device (torch.device): 运行评估的设备（CPU或GPU）。
+        logger (logging.Logger): 用于记录信息的日志记录器。
+
+    Returns:
+        tuple: 包含平均损失、准确率、所有预测和所有标签的元组。
+    """
     model.eval()
     running_loss = 0.0
     correct = 0
@@ -99,11 +133,29 @@ def evaluate_model(model, data_loader, criterion, device, logger):
 
 
 def save_model(state_dict, path):
+    """
+    保存模型的状态字典。
+
+    Args:
+        state_dict (dict): 模型的状态字典。
+        path (str): 保存路径。
+    """
     torch.save(state_dict, path)
     print(f"Model state_dict saved to {path}")
 
 
 def save_test_results(all_preds, all_labels, accuracy, classification_report, path):
+    """
+    保存测试结果。
+
+    Args:
+        all_preds (list): 所有预测标签。
+        all_labels (list): 所有真实标签。
+        accuracy (float): 测试准确率。
+        classification_report (str): 分类报告。
+        path (str): 保存路径。
+    """
+
     def convert(o):
         if isinstance(o, np.integer):
             return int(o)
@@ -128,12 +180,13 @@ def save_test_results(all_preds, all_labels, accuracy, classification_report, pa
 
 def plot_and_save_confusion_matrix(labels, preds, num_classes, save_path):
     """
-    绘制并保存混淆矩阵
+    计算并保存混淆矩阵。
+
     Args:
-        labels: 真实标签列表
-        preds: 预测标签列表
-        num_classes: 类别数量
-        save_path: 图像保存路径
+        labels (list or np.ndarray): 真实标签。
+        preds (list or np.ndarray): 预测标签。
+        num_classes (int): 类别数量。
+        save_path (str): 保存图像的路径。
     """
     # 计算混淆矩阵
     cm = confusion_matrix(labels, preds)

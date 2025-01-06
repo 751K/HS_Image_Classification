@@ -1,10 +1,10 @@
 import os
 
 import numpy as np
-from scipy.io import loadmat
-from torch.utils.data import Dataset, DataLoader
 import torch
+from scipy.io import loadmat
 from sklearn.model_selection import train_test_split
+from torch.utils.data import Dataset, DataLoader
 
 
 class IndianPinesDataset(Dataset):
@@ -92,24 +92,6 @@ def prepare_data(data, labels, test_size=0.1, val_size=0.1, random_state=42, dim
         X_test = X_test.reshape(X_test.shape[0], bands, 1, 1)
 
     return X_train, y_train, X_val, y_val, X_test, y_test
-
-
-def reshape_to_1d(X):
-    return X.reshape(X.shape[0], X.shape[1], 1)
-
-
-def reshape_to_2d(X):
-    return X.reshape(X.shape[0], 1, X.shape[1], 1)
-
-
-def remove_background(X, y):
-    """
-    去除背景类（标签0）并调整标签
-    """
-    mask = y > 0
-    X = X[mask]
-    y = y[mask] - 1  # 类别从0开始
-    return X, y
 
 
 def create_data_loaders(X_train, y_train, X_val, y_val, X_test, y_test, batch_size, num_workers):
