@@ -32,15 +32,35 @@ class LeeEtAl(nn.Module):
         定义模型的前向传播。
 
         Args:
-            x (Tensor): 输入张量。
+            x (Tensor): 输入张量，形状为 (batch_size, height, width, in_channels)。
 
         Returns:
             Tensor: 模型的输出张量。
         """
-        x = self._inception_forward(x)
-        x = self._residual_blocks_forward(x)
-        x = self._classifier_forward(x)
-        return x
+        # 调整输入张量的形状以适应 inception 模块
+        x = x.permute(0, 3, 1, 2).unsqueeze(1)  # 变为 (batch_size, 1, in_channels, height, width)
+
+        # Inception forward
+        x_3x3 = self.inception['conv_3x3'](x)
+        x_1x1 = self.inception['conv_1x1'](x)
+        x = torch.cat([x_3x3, x_1x1], dim=1)
+        x = x.squeeze(2)  # 移除 in_channels 维度
+        x = F.relu(self.lrn1(x))
+
+        # Residual blocks forward
+        x = self.residual_blocks[0](x)
+        x = F.relu(self.lrn2(x))
+        for block in self.residual_blocks[1:]:
+            x = F.relu(x + block(x))
+
+        # Classifier forward
+        for i, layer in enumerate(self.classifier):
+            x = layer(x)
+            if i < len(self.classifier) - 1:
+                x = F.relu(x)
+                x = self.dropout(x)
+
+        return x.squeeze(2).squeeze(2)
 
     @staticmethod
     def _create_inception_module(in_channels: int) -> nn.ModuleDict:
@@ -54,8 +74,8 @@ class LeeEtAl(nn.Module):
             nn.ModuleDict: 包含 inception 模块的字典。
         """
         return nn.ModuleDict({
-            'conv_3x3': nn.Conv3d(1, 128, (3, 3, in_channels), stride=(1, 1, 2), padding=(1, 1, 0)),
-            'conv_1x1': nn.Conv3d(1, 128, (1, 1, in_channels), stride=(1, 1, 1), padding=0)
+            'conv_3x3': nn.Conv3d(1, 128, (in_channels, 3, 3), stride=(1, 1, 1), padding=(0, 1, 1)),
+            'conv_1x1': nn.Conv3d(1, 128, (in_channels, 1, 1), stride=(1, 1, 1), padding=0)
         })
 
     def _create_residual_blocks(self) -> nn.ModuleList:
@@ -107,55 +127,6 @@ class LeeEtAl(nn.Module):
             nn.Conv2d(128, n_classes, (9, 9))
         )
 
-    def _inception_forward(self, x: Tensor) -> Tensor:
-        """
-        Inception 模块的前向传播。
-
-        Args:
-            x (Tensor): 输入张量。
-
-        Returns:
-            Tensor: Inception 模块的输出张量。
-        """
-        x_3x3 = self.inception['conv_3x3'](x)
-        x_1x1 = self.inception['conv_1x1'](x)
-        x = torch.cat([x_3x3, x_1x1], dim=1)
-        x = torch.squeeze(x)
-        return F.relu(self.lrn1(x))
-
-    def _residual_blocks_forward(self, x: Tensor) -> Tensor:
-        """
-        残差块的前向传播。
-
-        Args:
-            x (Tensor): 输入张量。
-
-        Returns:
-            Tensor: 残差块的输出张量。
-        """
-        x = self.residual_blocks[0](x)
-        x = F.relu(self.lrn2(x))
-        for block in self.residual_blocks[1:]:
-            x = F.relu(x + block(x))
-        return x
-
-    def _classifier_forward(self, x: Tensor) -> Tensor:
-        """
-        分类器的前向传播。
-
-        Args:
-            x (Tensor): 输入张量。
-
-        Returns:
-            Tensor: 分类器的输出张量。
-        """
-        for i, layer in enumerate(self.classifier):
-            x = layer(x)
-            if i < len(self.classifier) - 1:
-                x = F.relu(x)
-                x = self.dropout(x)
-        return x.squeeze(2).squeeze(2)
-
     @staticmethod
     def _weight_init(m: nn.Module) -> None:
         """
@@ -167,3 +138,28 @@ class LeeEtAl(nn.Module):
         if isinstance(m, (nn.Linear, nn.Conv3d, nn.Conv2d)):
             init.kaiming_uniform_(m.weight)
             init.zeros_(m.bias)
+
+    def __str__(self) -> str:
+        """
+        返回模型的字符串表示。
+
+        Returns:
+            str: 描述模型结构的字符串。
+        """
+        return (f"LeeEtAl(in_channels={self.inception['conv_3x3'].kernel_size[0]}, "
+                f"n_classes={self.classifier[-1].out_channels})")
+
+
+batch_size, height, width, in_channels = 64, 30, 30, 200
+input_data = torch.randn(batch_size, height, width, in_channels)
+
+# 创建模型实例
+n_classes = 16
+model = LeeEtAl(in_channels, n_classes)
+
+# 前向传播
+output = model(input_data)
+
+print(f"Input shape: {input_data.shape}")
+print(f"Output shape: {output.shape}")
+print(f"Model structure: {model}")
