@@ -1,18 +1,18 @@
 import os
-import torch
+from datetime import datetime
+
 import numpy as np
+import torch
 import torch.nn as nn
 import torch.optim as optim
-
-from datetime import datetime
 from sklearn.metrics import classification_report
-from src.CNNBase.Resnet1D import ResNet1D
-from src.CNNBase.Resnet2D import ResNet2D
-from src.Train_and_Eval.log import setup_logger
 from torch.utils.tensorboard import SummaryWriter
-from src.Train_and_Eval.model import train_model, evaluate_model, set_seed, plot_and_save_confusion_matrix
-from src.Train_and_Eval.model import save_model, save_test_results
+
+from src.CNNBase.Resnet2D import ResNet2D
 from src.Train_and_Eval.learing_rate import WarmupCosineSchedule
+from src.Train_and_Eval.log import setup_logger
+from src.Train_and_Eval.model import save_model, save_test_results
+from src.Train_and_Eval.model import train_model, evaluate_model, set_seed, plot_and_save_confusion_matrix
 from src.datesets.IndianPinesDataset import load_data, prepare_data, create_data_loaders
 
 
@@ -34,8 +34,8 @@ def main():
     logger.info("配置参数：epochs=%d, batch_size=%d, num_workers=%d", num_epochs, batch_size, num_workers)
 
     # 数据文件路径
-    data_path = 'datasets/Indian/Indian_pines_corrected.mat'
-    gt_path = 'datasets/Indian/Indian_pines_gt.mat'
+    data_path = '../datasets/Indian/Indian_pines_corrected.mat'
+    gt_path = '../datasets/Indian/Indian_pines_gt.mat'
 
     logger.info("数据路径：data_path=%s, gt_path=%s", data_path, gt_path)
 
