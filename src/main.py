@@ -18,7 +18,7 @@ from src.datesets.IndianPinesDataset import load_data, prepare_data, create_data
 
 def main():
     num_epochs = 100
-    batch_size = 512
+    batch_size = 16
     num_workers = 4
     warmup_steps = 10  # 预热步数
     set_seed(42)
