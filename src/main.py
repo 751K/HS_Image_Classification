@@ -11,6 +11,7 @@ from torch.utils.tensorboard import SummaryWriter
 from src.CNNBase.LeeEtAl3D import LeeEtAl3D
 from src.Train_and_Eval.learing_rate import WarmupCosineSchedule
 from src.Train_and_Eval.log import setup_logger
+from src.Train_and_Eval.model import init_weights
 from src.Train_and_Eval.model import save_model, save_test_results
 from src.Train_and_Eval.model import train_model, evaluate_model, set_seed, plot_and_save_confusion_matrix
 from src.datesets.IndianPinesDataset import load_data, prepare_data, create_data_loaders
@@ -52,6 +53,7 @@ def main():
     # model = ResNet1D(input_channels=input_channels, num_classes=num_classes)
     model = LeeEtAl3D(in_channels=input_channels, n_classes=num_classes)
 
+    model.apply(init_weights)
     model_name = model.__class__.__name__
 
     logger.info("模型创建完成：%s", model_name)
