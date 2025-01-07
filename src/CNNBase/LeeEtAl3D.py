@@ -86,17 +86,18 @@ class LeeEtAl3D(nn.Module):
                 f"n_classes={self.classifier[-1].out_channels})")
 
 
-# # 测试代码
-# batch_size, in_channels = 1, 200
-# input_data = torch.randn(batch_size, 1, in_channels, 145, 145)
-#
-# # 创建模型实例
-# n_classes = 16
-# model = LeeEtAl3D(in_channels, n_classes)
-#
-# # 前向传播
-# output = model(input_data)
-#
-# print(f"Input shape: {input_data.shape}")
-# print(f"Output shape: {output.shape}")
-# print(f"Model structure: {model}")
+if __name__ == '__main__':
+    # 测试代码
+    batch_size, in_channels = 16, 200
+    input_data = torch.randn(batch_size, 1, in_channels, 5, 5)
+
+    # 创建模型实例
+    n_classes = 16
+    model = LeeEtAl3D(in_channels, n_classes)
+
+    # 前向传播
+    output = model(input_data)
+
+    print(f"Input shape: {input_data.shape}")
+    print(f"Output shape: {output.shape}")
+    print(f"Model structure: {model}")

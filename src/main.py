@@ -8,7 +8,7 @@ import torch.optim as optim
 from sklearn.metrics import classification_report
 from torch.utils.tensorboard import SummaryWriter
 
-from src.CNNBase.Resnet1D import ResNet1D
+from src.CNNBase.LeeEtAl3D import LeeEtAl3D
 from src.Train_and_Eval.learing_rate import WarmupCosineSchedule
 from src.Train_and_Eval.log import setup_logger
 from src.Train_and_Eval.model import save_model, save_test_results
@@ -18,9 +18,9 @@ from src.datesets.IndianPinesDataset import load_data, prepare_data, create_data
 
 def main():
     num_epochs = 100
-    batch_size = 16
+    batch_size = 32
     num_workers = 4
-    warmup_steps = 10  # 预热步数
+    warmup_steps = 10
     set_seed(42)
 
     # 创建保存模型和结果的目录
@@ -46,9 +46,12 @@ def main():
     logger.info("数据加载完成：data shape=%s, labels shape=%s, num_classes=%d",
                 data.shape, labels.shape, num_classes)
 
-    # 设置模型
+    # 创建模型
+
     # model = ResNet2D(input_channels=input_channels, num_classes=num_classes)
-    model = ResNet1D(input_channels=input_channels, num_classes=num_classes)
+    # model = ResNet1D(input_channels=input_channels, num_classes=num_classes)
+    model = LeeEtAl3D(in_channels=input_channels, n_classes=num_classes)
+
     model_name = model.__class__.__name__
 
     logger.info("模型创建完成：%s", model_name)

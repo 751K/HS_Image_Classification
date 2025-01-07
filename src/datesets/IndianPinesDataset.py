@@ -84,8 +84,7 @@ def prepare_data(data, labels, test_size=0.6, val_size=0.1, random_state=42, dim
 
     elif dim == 3:
         patches, patch_labels = create_patches(data, labels, patch_size=5)
-        patches = patches.squeeze(0)
-        patch_labels = patch_labels.squeeze(0)
+        patches = torch.from_numpy(patches).unsqueeze(1)
 
         # 分割数据集
         X_train, X_temp, y_train, y_temp = train_test_split(patches, patch_labels, test_size=test_size + val_size,

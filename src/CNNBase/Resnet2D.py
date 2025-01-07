@@ -1,5 +1,6 @@
 from typing import List
 
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
@@ -72,17 +73,18 @@ class ResNet2D(nn.Module):
         return f"ResNet2DHSI(input_channels={self.input_channels}, num_classes={self.num_classes})"
 
 
-# # 测试代码
-# batch_size, in_channels, height, width = 16, 200, 3, 3
-# input_data = torch.randn(batch_size, in_channels, height, width)
-#
-# # 创建模型实例
-# n_classes = 16
-# model = ResNet2D(input_channels=in_channels, num_classes=n_classes)
-#
-# # 前向传播
-# output = model(input_data)
-#
-# print(f"Input shape: {input_data.shape}")
-# print(f"Output shape: {output.shape}")
-# print(f"Model structure: {model}")
+if __name__ == '__main__':
+    # 测试代码
+    batch_size, in_channels, height, width = 16, 200, 3, 3
+    input_data = torch.randn(batch_size, in_channels, height, width)
+
+    # 创建模型实例
+    n_classes = 16
+    model = ResNet2D(input_channels=in_channels, num_classes=n_classes)
+
+    # 前向传播
+    output = model(input_data)
+
+    print(f"Input shape: {input_data.shape}")
+    print(f"Output shape: {output.shape}")
+    print(f"Model structure: {model}")
