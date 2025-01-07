@@ -126,33 +126,13 @@ class ResNet1D(nn.Module):
                 f"num_classes={self.num_classes})")
 
 
-# # 设置测试参数
-# batch_size = 16
-# in_channels = 200
-# sequence_length = 100  # 对于1D模型，我们只需要一个长度参数
-#
-# # 创建随机输入数据
-# input_data = torch.randn(batch_size, in_channels, sequence_length)
-#
-# # 创建模型实例
-# n_classes = 16
-# model = ResNet1D(input_channels=in_channels, num_classes=n_classes)
-#
-# # 前向传播
-# output = model(input_data)
-#
-# # 打印信息
-# print(f"Input shape: {input_data.shape}")
-# print(f"Output shape: {output.shape}")
-# print(f"Model structure:\n{model}")
-#
-# # 检查模型的设备
-# print(f"Model device: {next(model.parameters()).device}")
-#
-# # 如果有 GPU 可用，测试 GPU 上的模型
-# if torch.cuda.is_available():
-#     model = model.cuda()
-#     input_data = input_data.cuda()
-#     output = model(input_data)
-#     print(f"Output shape on GPU: {output.shape}")
-#     print(f"Model device on GPU: {next(model.parameters()).device}")
+if __name__ == '__main__':
+    # 测试代码
+    batch_size, in_channels, sequence_length = 16, 200, 100
+    input_data = torch.randn(batch_size, in_channels, sequence_length)
+
+    # 创建模型实例
+    model = ResNet1D(input_channels=in_channels, num_classes=16)
+    print(model)
+    output = model(input_data)
+    print(f"Output shape: {output.shape}")

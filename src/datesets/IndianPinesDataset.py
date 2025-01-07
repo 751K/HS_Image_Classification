@@ -10,7 +10,7 @@ from torch.utils.data import Dataset, DataLoader
 class IndianPinesDataset(Dataset):
     def __init__(self, data, labels, dim=3):
         self.dim = dim
-        self.data = torch.tensor(data, dtype=torch.float32)
+        self.data = torch.as_tensor(data, dtype=torch.float32)
         self.labels = torch.tensor(labels, dtype=torch.long)
 
     def __len__(self):
@@ -57,7 +57,7 @@ def create_patches(data, labels, patch_size=5):
     return np.array(patches), np.array(patch_labels)
 
 
-def prepare_data(data, labels, test_size=0.6, val_size=0.1, random_state=42, dim=1):
+def prepare_data(data, labels, test_size=0.65, val_size=0.05, random_state=42, dim=1):
     if dim == 1:
         mask = labels != 0
         samples = data[mask]

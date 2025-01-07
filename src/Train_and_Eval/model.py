@@ -6,7 +6,6 @@ import seaborn as sns
 import torch
 from matplotlib import pyplot as plt
 from sklearn.metrics import confusion_matrix
-from torch import nn
 
 
 def set_seed(seed):
@@ -29,7 +28,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
     best_val_accuracy = 0
     best_model = None
     dim = model.dim
-    num_classes = 16
+
     for epoch in range(num_epochs):
         model.train()
         running_loss = 0.0
@@ -179,13 +178,6 @@ def save_test_results(all_preds, all_labels, accuracy, classification_report, pa
         json.dump(results, f, indent=4, default=convert)
 
     print(f"Test results saved to {path}")
-
-
-def init_weights(m):
-    if isinstance(m, nn.Linear):
-        nn.init.kaiming_normal_(m.weight, mode='fan_in', nonlinearity='relu')
-        if m.bias is not None:
-            nn.init.constant_(m.bias, 0)
 
 
 def plot_and_save_confusion_matrix(labels, preds, num_classes, save_path):

@@ -6,13 +6,13 @@ from torch.nn import init
 
 
 class LeeEtAl3D(nn.Module):
-    def __init__(self, in_channels: int, n_classes: int):
+    def __init__(self, input_channels: int, num_classes: int):
         super(LeeEtAl3D, self).__init__()
         self.name: str = 'LeeEtAl'
 
-        self.inception: nn.ModuleDict = self._create_inception_module(in_channels)
+        self.inception: nn.ModuleDict = self._create_inception_module(input_channels)
         self.residual_blocks: nn.ModuleList = self._create_residual_blocks()
-        self.classifier: nn.Sequential = self._create_classifier(n_classes)
+        self.classifier: nn.Sequential = self._create_classifier(num_classes)
         self.dim: int = 3
 
         self.lrn1: nn.LocalResponseNorm = nn.LocalResponseNorm(256)
