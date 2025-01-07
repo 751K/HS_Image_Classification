@@ -45,7 +45,6 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
                 # dim=2, inputs: [batch_size, channels, 5, 5], labels: [batch_size, 5, 5]
                 outputs = outputs.permute(0, 2, 3, 1).contiguous().view(-1, outputs.size(1))
                 labels = labels.view(-1)
-                # print(labels)
             else:
                 # 保持原来的处理方式
                 outputs = outputs.view(-1, outputs.size(1))

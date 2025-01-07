@@ -8,7 +8,7 @@ import torch.optim as optim
 from sklearn.metrics import classification_report
 from torch.utils.tensorboard import SummaryWriter
 
-from src.CNNBase.Resnet2D import ResNet2D
+from src.CNNBase.Resnet1D import ResNet1D
 from src.Train_and_Eval.learing_rate import WarmupCosineSchedule
 from src.Train_and_Eval.log import setup_logger
 from src.Train_and_Eval.model import save_model, save_test_results
@@ -17,9 +17,10 @@ from src.datesets.IndianPinesDataset import load_data, prepare_data, create_data
 
 
 def main():
-    num_epochs = 10
-    batch_size = 128
+    num_epochs = 100
+    batch_size = 512
     num_workers = 4
+    warmup_steps = 10  # 预热步数
     set_seed(42)
 
     # 创建保存模型和结果的目录
@@ -46,7 +47,8 @@ def main():
                 data.shape, labels.shape, num_classes)
 
     # 设置模型
-    model = ResNet2D(input_channels=input_channels, num_classes=num_classes)
+    # model = ResNet2D(input_channels=input_channels, num_classes=num_classes)
+    model = ResNet1D(input_channels=input_channels, num_classes=num_classes)
     model_name = model.__class__.__name__
 
     logger.info("模型创建完成：%s", model_name)
@@ -72,7 +74,6 @@ def main():
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-    warmup_steps = 10  # 预热步数
     total_steps = num_epochs * len(train_loader)  # 总步数
     scheduler = WarmupCosineSchedule(optimizer, warmup_steps, total_steps)
 
