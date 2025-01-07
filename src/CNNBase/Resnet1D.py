@@ -59,6 +59,8 @@ class ResNet1D(nn.Module):
         self.input_channels: int = input_channels
         self.num_classes: int = num_classes
         self.in_channels: int = 64
+        self.dim: int = 1
+
         self.conv1: nn.Conv1d = nn.Conv1d(input_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1: nn.BatchNorm1d = nn.BatchNorm1d(self.in_channels)
         self.relu: nn.ReLU = nn.ReLU(inplace=True)

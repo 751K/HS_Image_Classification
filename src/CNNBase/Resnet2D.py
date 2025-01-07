@@ -36,6 +36,7 @@ class ResNet2D(nn.Module):
         self.input_channels = input_channels
         self.num_classes = num_classes
         self.in_channels = 64
+        self.dim = 2
 
         self.conv1 = nn.Conv2d(input_channels, self.in_channels, kernel_size=3, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(self.in_channels)

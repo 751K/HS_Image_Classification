@@ -1,5 +1,4 @@
 import json
-import logging
 import random
 
 import numpy as np
@@ -26,25 +25,10 @@ def set_seed(seed):
 
 
 def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler, num_epochs, device, writer, logger):
-    """
-    训练模型。
-
-    Args:
-        model (torch.nn.Module): 要训练的模型。
-        train_loader (torch.utils.data.DataLoader): 训练数据加载器。
-        val_loader (torch.utils.data.DataLoader): 验证数据加载器。
-        criterion (torch.nn.Module): 损失函数。
-        optimizer (torch.optim.Optimizer): 优化器。
-        scheduler (torch.optim.lr_scheduler._LRScheduler): 学习率调度器。
-        num_epochs (int): 训练的轮数。
-        device (torch.device): 设备（CPU或GPU）。
-        writer (torch.utils.tensorboard.SummaryWriter): TensorBoard的记录器。
-        logger (logging.Logger): 日志记录器。
-    """
-
     best_val_accuracy = 0
     best_model = None
-
+    dim = model.dim
+    num_classes = 16
     for epoch in range(num_epochs):
         model.train()
         running_loss = 0.0
@@ -53,9 +37,20 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
 
         for i, (inputs, labels) in enumerate(train_loader):
             inputs, labels = inputs.to(device), labels.to(device)
-
             optimizer.zero_grad()
+
             outputs = model(inputs)
+
+            if dim == 2:
+                # dim=2, inputs: [batch_size, channels, 5, 5], labels: [batch_size, 5, 5]
+                outputs = outputs.permute(0, 2, 3, 1).contiguous().view(-1, outputs.size(1))
+                labels = labels.view(-1)
+                # print(labels)
+            else:
+                # 保持原来的处理方式
+                outputs = outputs.view(-1, outputs.size(1))
+                labels = labels.view(-1)
+
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
@@ -70,11 +65,15 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
                 logger.info('Epoch [%d/%d], Step [%d/%d], Loss: %.4f',
                             epoch + 1, num_epochs, i + 1, len(train_loader), loss.item())
 
-        epoch_loss = running_loss / len(train_loader.dataset)
+        if dim == 2:
+            epoch_loss = running_loss / (len(train_loader.dataset) * 5 * 5)  # 考虑5x5的patch
+        else:
+            epoch_loss = running_loss / (len(train_loader.dataset) * 145 * 145)  # 考虑所有像素
         epoch_acc = correct / total
 
         # 验证
         val_loss, val_accuracy, _, _ = evaluate_model(model, val_loader, criterion, device, logger)
+
         # 记录训练和验证指标
         writer.add_scalar('Loss/train', epoch_loss, epoch)
         writer.add_scalar('Accuracy/train', epoch_acc, epoch)
@@ -93,32 +92,33 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
 
 
 def evaluate_model(model, data_loader, criterion, device, logger):
-    """
-    评估模型在给定数据加载器上的表现。
-
-    Args:
-        model (torch.nn.Module): 要评估的模型。
-        data_loader (torch.utils.data.DataLoader): 用于评估的数据加载器。
-        criterion (torch.nn.Module): 损失函数。
-        device (torch.device): 运行评估的设备（CPU或GPU）。
-        logger (logging.Logger): 用于记录信息的日志记录器。
-
-    Returns:
-        tuple: 包含平均损失、准确率、所有预测和所有标签的元组。
-    """
     model.eval()
     running_loss = 0.0
     correct = 0
     total = 0
     all_preds = []
     all_labels = []
+    dim = model.dim
 
     with torch.no_grad():
-        for i, (inputs, labels) in enumerate(data_loader):
-            inputs, labels = inputs.to(device), labels.to(device)
+        for inputs, labels in data_loader:
+            inputs = inputs.to(device)
+            labels = labels.to(device)
+
             outputs = model(inputs)
+
+            if dim == 2:
+                # dim=2, inputs: [batch_size, channels, 5, 5], labels: [batch_size, 5, 5]
+                outputs = outputs.permute(0, 2, 3, 1).contiguous().view(-1, outputs.size(1))
+                labels = labels.view(-1)
+            else:
+                # 保持原来的处理方式
+                outputs = outputs.view(-1, outputs.size(1))
+                labels = labels.view(-1)
+
             loss = criterion(outputs, labels)
             running_loss += loss.item() * inputs.size(0)
+
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
@@ -126,7 +126,10 @@ def evaluate_model(model, data_loader, criterion, device, logger):
             all_labels.extend(labels.cpu().numpy())
 
     accuracy = correct / total
-    avg_loss = running_loss / len(data_loader.dataset)
+    if dim == 2:
+        avg_loss = running_loss / (total * 5 * 5)  # 考虑5x5的patch
+    else:
+        avg_loss = running_loss / total
     logger.info("平均损失: %.4f, 准确率: %.4f", avg_loss, accuracy)
 
     return avg_loss, accuracy, all_preds, all_labels

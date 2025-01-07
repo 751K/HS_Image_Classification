@@ -17,10 +17,9 @@ from src.datesets.IndianPinesDataset import load_data, prepare_data, create_data
 
 
 def main():
-    # HSI 任务下的Batch Size 指的是每一次处理的像素数量，而不是每一次处理的图像数量
-    num_epochs = 100
-    batch_size = 64
-    num_workers = 0
+    num_epochs = 10
+    batch_size = 128
+    num_workers = 4
     set_seed(42)
 
     # 创建保存模型和结果的目录
@@ -41,28 +40,28 @@ def main():
 
     # data: (145, 145, 200), labels: (145, 145)
     data, labels = load_data(data_path, gt_path)
-    num_classes = len(np.unique(labels)) - 1  # 减去背景类
-
+    num_classes = len(np.unique(labels))
+    input_channels = data.shape[-1]
     logger.info("数据加载完成：data shape=%s, labels shape=%s, num_classes=%d",
                 data.shape, labels.shape, num_classes)
 
-    X_train, y_train, X_val, y_val, X_test, y_test = prepare_data(data, labels, dim=2)
+    # 设置模型
+    model = ResNet2D(input_channels=input_channels, num_classes=num_classes)
+    model_name = model.__class__.__name__
+
+    logger.info("模型创建完成：%s", model_name)
+
+    X_train, y_train, X_val, y_val, X_test, y_test = prepare_data(data, labels, dim=model.dim)
 
     logger.info("数据预处理完成：train=%s, val=%s, test=%s",
                 X_train.shape, X_val.shape, X_test.shape)
 
     train_loader, val_loader, test_loader = create_data_loaders(
-        X_train, y_train, X_val, y_val, X_test, y_test, batch_size, num_workers
+        X_train, y_train, X_val, y_val, X_test, y_test, batch_size, num_workers, dim=model.dim
+
     )
 
     logger.info("数据加载器创建完成")
-
-    # 设置模型
-    input_channels = data.shape[-1]
-    model = ResNet2D(input_channels=input_channels, num_classes=num_classes)
-    model_name = model.__class__.__name__
-
-    logger.info("模型创建完成：%s", model_name)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
@@ -73,7 +72,7 @@ def main():
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-    warmup_steps = 5  # 预热步数
+    warmup_steps = 10  # 预热步数
     total_steps = num_epochs * len(train_loader)  # 总步数
     scheduler = WarmupCosineSchedule(optimizer, warmup_steps, total_steps)
 
