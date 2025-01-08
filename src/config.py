@@ -1,3 +1,6 @@
+# config.py
+import sys
+
 from src.model_init import AVAILABLE_MODELS
 
 
@@ -16,13 +19,17 @@ class Config:
     @staticmethod
     def select_model():
         print("Available models:")
+        print("0. Exit")
         for i, model_name in enumerate(AVAILABLE_MODELS.keys(), 1):
             print(f"{i}. {model_name}")
 
         while True:
             try:
                 choice = int(input("Enter the number of the model you want to use: "))
-                if 1 <= choice <= len(AVAILABLE_MODELS):
+                if choice == 0:
+                    print("You chose to exit the program. Goodbye!")
+                    sys.exit(0)
+                elif 1 <= choice <= len(AVAILABLE_MODELS):
                     return list(AVAILABLE_MODELS.keys())[choice - 1]
                 else:
                     print("Invalid choice. Please try again.")

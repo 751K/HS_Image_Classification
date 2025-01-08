@@ -1,3 +1,5 @@
+# __init__.py
+
 from .LeeEtAl3D import LeeEtAl3D
 from .ResNet1D import ResNet1D
 from .ResNet2D import ResNet2D
