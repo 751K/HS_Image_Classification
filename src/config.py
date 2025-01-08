@@ -8,7 +8,7 @@ class Config:
     def __init__(self):
         self.model_name = self.select_model()
         self.num_epochs = 100
-        self.batch_size = 32
+        self.batch_size = 128
         self.num_workers = 4
         self.warmup_steps = 10
         self.learning_rate = 0.001
@@ -17,8 +17,6 @@ class Config:
 
         # self.resume_checkpoint = '../results/ResNet2D_0108_135525/checkpoint_epoch_40.pth'
         self.resume_checkpoint = None
-        self.data_path = '../datasets/Indian/Indian_pines_corrected.mat'
-        self.gt_path = '../datasets/Indian/Indian_pines_gt.mat'
 
         # 降维相关配置
         self.perform_dim_reduction = True
