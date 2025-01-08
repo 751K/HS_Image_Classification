@@ -2,6 +2,8 @@ import numpy as np
 from sklearn.metrics import euclidean_distances
 from sklearn.utils import check_random_state
 
+from src.datesets.datasets_load import load_dataset
+
 
 def stress(D, d):
     """
@@ -142,13 +144,13 @@ def spectral_mds_reduction(data, n_components=20, max_iter=300, eps=1e-3, random
 if __name__ == "__main__":
     # 生成一个模拟的高光谱图像数据
     np.random.seed(42)
-    hyperspectral_data = np.random.rand(10, 10, 200)  # 100x100 像素，200 个波段
+    data, labels, dataset_info = load_dataset('Pavia')
 
     # 应用光谱MDS降维
-    data = spectral_mds_reduction(hyperspectral_data, n_components=64)
+    x = spectral_mds_reduction(data, n_components=64)
 
-    print("原始数据形状:", hyperspectral_data.shape)
-    (reduced_data, metric) = data
+    print("原始数据形状:", data.shape)
+    (reduced_data, metric) = x
     print("降维后的数据形状:", reduced_data.shape)
 
     # 可视化原始数据和降维后数据的一个像素的光谱
@@ -157,14 +159,14 @@ if __name__ == "__main__":
     plt.figure(figsize=(12, 5))
 
     plt.subplot(1, 2, 1)
-    plt.plot(hyperspectral_data[5, 5, :])
+    plt.plot(data[5, 5, :])
     plt.title("Original Spectrum (200 bands)")
     plt.xlabel("Band")
     plt.ylabel("Intensity")
 
     plt.subplot(1, 2, 2)
     plt.plot(reduced_data[5, 5, :])
-    plt.title("Reduced Spectrum (20 components)")
+    plt.title("Reduced Spectrum (64 components)")
     plt.xlabel("MDS Component")
     plt.ylabel("Value")
 

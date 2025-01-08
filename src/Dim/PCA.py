@@ -1,5 +1,7 @@
 import numpy as np
 
+from src.datesets.datasets_load import load_dataset
+
 
 def pca(X, n_components=None):
     """
@@ -83,14 +85,13 @@ def spectral_pca_reduction(data, n_components=None):
 # 使用示例
 if __name__ == "__main__":
     # 生成一个模拟的高光谱图像数据
-    np.random.seed(0)
-    hyperspectral_data = np.random.rand(145, 145, 200)  # 100x100 像素，200 个波段
+    np.random.seed(42)
+    data, labels, dataset_info = load_dataset('Pavia')
 
-    # 执行光谱 PCA，保留 20 个主成分
-    reduced_data, tmp = spectral_pca_reduction(hyperspectral_data, n_components=20)
+    reduced_data, tmp = spectral_pca_reduction(data, n_components=80)
     explained_var_ratio, eigenvectors = tmp
 
-    print("原始数据形状:", hyperspectral_data.shape)
+    print("原始数据形状:", data.shape)
     print("PCA 后的数据形状:", reduced_data.shape)
     print("解释方差比:", explained_var_ratio)
     print("总解释方差:", np.sum(explained_var_ratio))
@@ -101,7 +102,7 @@ if __name__ == "__main__":
     plt.figure(figsize=(12, 5))
 
     plt.subplot(1, 2, 1)
-    plt.plot(hyperspectral_data[50, 50, :])
+    plt.plot(data[50, 50, :])
     plt.title("Original Spectrum (200 bands)")
     plt.xlabel("Band")
     plt.ylabel("Intensity")
