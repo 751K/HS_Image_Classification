@@ -93,7 +93,7 @@ def prepare_data(data, labels, test_size=0.65, val_size=0.05, random_state=42, d
                                                         random_state=random_state)
 
     else:
-        raise ValueError("dim must be 1, 2, or 3")
+        raise ValueError("Dim must be 1, 2, or 3")
 
     return X_train, y_train, X_val, y_val, X_test, y_test
 

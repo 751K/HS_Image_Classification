@@ -41,7 +41,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
 
             outputs = model(inputs)
 
-            if dim == 2:
+            if dim == 2 or dim == 3:
                 # dim=2, inputs: [batch_size, channels, 5, 5], labels: [batch_size, 5, 5]
                 outputs = outputs.permute(0, 2, 3, 1).contiguous().view(-1, outputs.size(1))
                 labels = labels.view(-1)
@@ -64,7 +64,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
                 logger.info('Epoch [%d/%d], Step [%d/%d], Loss: %.4f',
                             epoch + 1, num_epochs, i + 1, len(train_loader), loss.item())
 
-        if dim == 2:
+        if dim == 2 or dim == 3:
             epoch_loss = running_loss / (len(train_loader.dataset) * 5 * 5)  # 考虑5x5的patch
         else:
             epoch_loss = running_loss / (len(train_loader.dataset) * 145 * 145)  # 考虑所有像素
@@ -106,8 +106,8 @@ def evaluate_model(model, data_loader, criterion, device, logger):
 
             outputs = model(inputs)
 
-            if dim == 2:
-                # dim=2, inputs: [batch_size, channels, 5, 5], labels: [batch_size, 5, 5]
+            if dim == 2 or dim == 3:
+                # Dim=2, inputs: [batch_size, channels, 5, 5], labels: [batch_size, 5, 5]
                 outputs = outputs.permute(0, 2, 3, 1).contiguous().view(-1, outputs.size(1))
                 labels = labels.view(-1)
             else:
