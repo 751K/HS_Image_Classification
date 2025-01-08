@@ -13,6 +13,7 @@ class Config:
         self.warmup_steps = 10
         self.learning_rate = 0.001
         self.seed = 42
+        self.PCA = True
         self.data_path = '../datasets/Indian/Indian_pines_corrected.mat'
         self.gt_path = '../datasets/Indian/Indian_pines_gt.mat'
 

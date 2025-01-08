@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
+from Dim.PCA import spectral_pca_reduction
 from Train_and_Eval.learing_rate import WarmupCosineSchedule
 from Train_and_Eval.log import setup_logger
 from Train_and_Eval.model import save_model, save_test_results, set_seed, plot_and_save_confusion_matrix
@@ -40,6 +41,11 @@ def main():
 
         # 加载和准备数据
         data, labels = load_data(config.data_path, config.gt_path)
+        logger.info(f"数据加载完成：{config.data_path}")
+
+        if config.PCA:
+            data, _, _ = spectral_pca_reduction(data, n_components=20)
+            logger.info("PCA完成")
         num_classes = len(np.unique(labels))
         input_channels = data.shape[-1]
 
