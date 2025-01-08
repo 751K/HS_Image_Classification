@@ -77,7 +77,7 @@ def spectral_pca_reduction(data, n_components=None):
     # 将降维后的数据重塑回原始的空间维度
     reduced_data = data_pca.reshape(height, width, -1)
 
-    return reduced_data, explained_var_ratio, eigenvectors
+    return reduced_data, (explained_var_ratio, eigenvectors)
 
 
 # 使用示例
@@ -87,7 +87,8 @@ if __name__ == "__main__":
     hyperspectral_data = np.random.rand(145, 145, 200)  # 100x100 像素，200 个波段
 
     # 执行光谱 PCA，保留 20 个主成分
-    reduced_data, explained_var_ratio, eigenvectors = spectral_pca_reduction(hyperspectral_data, n_components=20)
+    reduced_data, tmp = spectral_pca_reduction(hyperspectral_data, n_components=20)
+    explained_var_ratio, eigenvectors = tmp
 
     print("原始数据形状:", hyperspectral_data.shape)
     print("PCA 后的数据形状:", reduced_data.shape)

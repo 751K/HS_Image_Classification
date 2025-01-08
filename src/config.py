@@ -2,6 +2,10 @@
 import sys
 
 from src.model_init import AVAILABLE_MODELS
+from Dim.PCA import spectral_pca_reduction
+from Dim.kernel_PCA import spectral_kernel_pca_reduction
+from Dim.MDS import spectral_mds_reduction
+from Dim.UMAP import spectral_umap_reduction
 
 
 class Config:
@@ -13,9 +17,26 @@ class Config:
         self.warmup_steps = 10
         self.learning_rate = 0.001
         self.seed = 42
-        self.PCA = True
+
+        # self.resume_checkpoint = '../results/ResNet2D_0108_135525/checkpoint_epoch_40.pth'
+        self.resume_checkpoint = None
         self.data_path = '../datasets/Indian/Indian_pines_corrected.mat'
         self.gt_path = '../datasets/Indian/Indian_pines_gt.mat'
+
+        # 降维相关配置
+        self.perform_dim_reduction = True
+        self.dim_reduction = 'PCA'  # 可选: 'PCA', 'KernelPCA', 'MDS', 'UMAP'
+        self.n_components = 80  # 降维后的组件数
+
+        self.pca_whiten = False
+        self.kpca_kernel = 'rbf'
+        self.kpca_gamma = None
+        self.mds_metric = True
+        self.mds_n_init = 4
+        self.umap_n_neighbors = 15
+        self.umap_min_dist = 0.1
+
+
 
     @staticmethod
     def select_model():

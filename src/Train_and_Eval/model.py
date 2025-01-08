@@ -1,4 +1,5 @@
 import json
+import os
 import random
 
 import numpy as np
@@ -24,12 +25,12 @@ def set_seed(seed):
     torch.backends.cudnn.benchmark = False
 
 
-def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler, num_epochs, device, writer, logger):
+def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler, num_epochs, device, writer, logger, save_dir, start_epoch=0):
     best_val_accuracy = 0
     best_model = None
     dim = model.dim
 
-    for epoch in range(num_epochs):
+    for epoch in range(start_epoch, num_epochs):
         model.train()
         running_loss = 0.0
         correct = 0
@@ -42,11 +43,9 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
             outputs = model(inputs)
 
             if dim == 2 or dim == 3:
-                # dim=2, inputs: [batch_size, channels, 5, 5], labels: [batch_size, 5, 5]
                 outputs = outputs.permute(0, 2, 3, 1).contiguous().view(-1, outputs.size(1))
                 labels = labels.view(-1)
             else:
-                # 保持原来的处理方式
                 outputs = outputs.view(-1, outputs.size(1))
                 labels = labels.view(-1)
 
@@ -60,20 +59,18 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
-            if i % 100 == 99:  # 每100个批次打印一次
+            if i % 100 == 99:
                 logger.info('Epoch [%d/%d], Step [%d/%d], Loss: %.4f',
                             epoch + 1, num_epochs, i + 1, len(train_loader), loss.item())
 
         if dim == 2 or dim == 3:
-            epoch_loss = running_loss / (len(train_loader.dataset) * 5 * 5)  # 考虑5x5的patch
+            epoch_loss = running_loss / (len(train_loader.dataset) * 5 * 5)
         else:
-            epoch_loss = running_loss / (len(train_loader.dataset) * 145 * 145)  # 考虑所有像素
+            epoch_loss = running_loss / (len(train_loader.dataset) * 145 * 145)
         epoch_acc = correct / total
 
-        # 验证
         val_loss, val_accuracy, _, _ = evaluate_model(model, val_loader, criterion, device, logger)
 
-        # 记录训练和验证指标
         writer.add_scalar('Loss/train', epoch_loss, epoch)
         writer.add_scalar('Accuracy/train', epoch_acc, epoch)
         writer.add_scalar('Loss/val', val_loss, epoch)
@@ -86,6 +83,20 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
             best_val_accuracy = val_accuracy
             best_model = model.state_dict()
             logger.info('New best model saved with validation accuracy: %.4f', best_val_accuracy)
+
+        # 每10个epoch保存一次检查点
+        if (epoch + 1) % 10 == 0:
+            checkpoint = {
+                'epoch': epoch + 1,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'scheduler_state_dict': scheduler.state_dict(),
+                'best_val_accuracy': best_val_accuracy,
+                'best_model': best_model
+            }
+            save_path = os.path.join(save_dir, f'checkpoint_epoch_{epoch + 1}.pth')
+            torch.save(checkpoint, save_path)
+            logger.info(f'Checkpoint saved at epoch {epoch + 1}: {save_path}')
 
     return best_model
 
@@ -125,7 +136,7 @@ def evaluate_model(model, data_loader, criterion, device, logger):
             all_labels.extend(labels.cpu().numpy())
 
     accuracy = correct / total
-    if dim == 2:
+    if dim == 2 or dim == 3:
         avg_loss = running_loss / (total * 5 * 5)  # 考虑5x5的patch
     else:
         avg_loss = running_loss / total

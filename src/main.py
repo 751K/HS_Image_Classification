@@ -8,7 +8,6 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
-from Dim.PCA import spectral_pca_reduction
 from Train_and_Eval.learing_rate import WarmupCosineSchedule
 from Train_and_Eval.log import setup_logger
 from Train_and_Eval.model import save_model, save_test_results, set_seed, plot_and_save_confusion_matrix
@@ -16,6 +15,7 @@ from Train_and_Eval.model import train_model, evaluate_model
 from config import Config
 from datesets.IndianPinesDataset import load_data, prepare_data, create_data_loaders
 from model_init import create_model
+from Dim.api import apply_dimension_reduction
 
 
 def main():
@@ -43,9 +43,9 @@ def main():
         data, labels = load_data(config.data_path, config.gt_path)
         logger.info(f"数据加载完成：{config.data_path}")
 
-        if config.PCA:
-            data, _, _ = spectral_pca_reduction(data, n_components=20)
-            logger.info("PCA完成")
+        data = apply_dimension_reduction(data, config)
+        logger.info(f"使用{config.dim_reduction}降维完成")
+
         num_classes = len(np.unique(labels))
         input_channels = data.shape[-1]
 
@@ -54,7 +54,7 @@ def main():
         logger.info(f"模型创建完成：{config.model_name}")
 
         # 准备数据
-        X_train, y_train, X_val, y_val, X_test, y_test = prepare_data(data, labels, dim=model.dim)  # 假设所有模型都是3D的
+        X_train, y_train, X_val, y_val, X_test, y_test = prepare_data(data, labels, dim=model.dim)
         train_loader, val_loader, test_loader = create_data_loaders(
             X_train, y_train, X_val, y_val, X_test, y_test, config.batch_size, config.num_workers, dim=model.dim,
         )
@@ -72,11 +72,25 @@ def main():
         # 设置TensorBoard
         writer = SummaryWriter(log_dir=os.path.join(save_dir, 'tensorboard'))
 
+        # 检查是否有断点
+        start_epoch = 0
+        if config.resume_checkpoint:
+            checkpoint = torch.load(config.resume_checkpoint)
+            model.load_state_dict(checkpoint['model_state_dict'])
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+            start_epoch = checkpoint['epoch']
+            best_val_accuracy = checkpoint['best_val_accuracy']
+            best_model = checkpoint['best_model']
+            logger.info(f"从断点 {config.resume_checkpoint} 恢复训练，从 epoch {start_epoch} 开始")
+        else:
+            best_val_accuracy = 0
+            best_model = None
+
         # 训练模型
         logger.info("开始训练模型...")
         best_model_state_dict = train_model(model, train_loader, val_loader, criterion, optimizer, scheduler,
-                                            config.num_epochs,
-                                            device, writer, logger)
+                                            config.num_epochs, device, writer, logger, save_dir, start_epoch)
 
         # 保存最佳模型
         model_save_path = os.path.join(save_dir, "best_model.pth")

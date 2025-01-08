@@ -2,7 +2,7 @@ import numpy as np
 from umap import UMAP
 
 
-def spectral_umap_reduction(data, n_components=10, n_neighbors=15, min_dist=0.1, random_state=42):
+def spectral_umap_reduction(data, n_components=10, n_neighbors=15, min_dist=0.1, random_state=None):
     """
     对高光谱图像的光谱维度进行 UMAP 降维
 
