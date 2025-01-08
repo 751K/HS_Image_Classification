@@ -2,6 +2,7 @@
 import torch.nn as nn
 # 下面这行不能删
 from CNNBase.__init__ import *
+from TransformerBase.__init__ import *
 
 
 def get_available_models():

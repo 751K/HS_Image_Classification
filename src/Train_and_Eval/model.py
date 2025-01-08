@@ -45,6 +45,9 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
             if dim == 2 or dim == 3:
                 outputs = outputs.permute(0, 2, 3, 1).contiguous().view(-1, outputs.size(1))
                 labels = labels.view(-1)
+            elif dim == 1:
+                # 对于dim=1，我们不需要改变outputs的形状，因为它已经是(batch_size, num_classes)
+                pass
             else:
                 outputs = outputs.view(-1, outputs.size(1))
                 labels = labels.view(-1)
@@ -62,11 +65,11 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
             if i % 100 == 99:
                 logger.info('Epoch [%d/%d], Step [%d/%d], Loss: %.4f',
                             epoch + 1, num_epochs, i + 1, len(train_loader), loss.item())
-
-        if dim == 2 or dim == 3:
-            epoch_loss = running_loss / (len(train_loader.dataset) * 5 * 5)
+        if dim ==1:
+            epoch_loss = running_loss / len(train_loader.dataset)
         else:
-            epoch_loss = running_loss / (len(train_loader.dataset) * 145 * 145)
+            epoch_loss = running_loss / (len(train_loader.dataset) * 5 * 5)
+
         epoch_acc = correct / total
 
         val_loss, val_accuracy, _, _ = evaluate_model(model, val_loader, criterion, device, logger)
@@ -100,7 +103,6 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
 
     return best_model
 
-
 def evaluate_model(model, data_loader, criterion, device, logger):
     model.eval()
     running_loss = 0.0
@@ -118,11 +120,12 @@ def evaluate_model(model, data_loader, criterion, device, logger):
             outputs = model(inputs)
 
             if dim == 2 or dim == 3:
-                # Dim=2, inputs: [batch_size, channels, 5, 5], labels: [batch_size, 5, 5]
                 outputs = outputs.permute(0, 2, 3, 1).contiguous().view(-1, outputs.size(1))
                 labels = labels.view(-1)
+            elif dim == 1:
+                # 对于dim=1，我们不需要改变outputs的形状
+                pass
             else:
-                # 保持原来的处理方式
                 outputs = outputs.view(-1, outputs.size(1))
                 labels = labels.view(-1)
 
@@ -136,14 +139,15 @@ def evaluate_model(model, data_loader, criterion, device, logger):
             all_labels.extend(labels.cpu().numpy())
 
     accuracy = correct / total
-    if dim == 2 or dim == 3:
-        avg_loss = running_loss / (total * 5 * 5)  # 考虑5x5的patch
-    else:
+
+    if dim ==1:
         avg_loss = running_loss / total
+    else:
+        avg_loss = running_loss / (total * 5 * 5)  # 考虑5x5的patch
+
     logger.info("平均损失: %.4f, 准确率: %.4f", avg_loss, accuracy)
 
     return avg_loss, accuracy, all_preds, all_labels
-
 
 def save_model(state_dict, path):
     """
