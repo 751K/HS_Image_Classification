@@ -13,9 +13,10 @@ from Train_and_Eval.log import setup_logger
 from Train_and_Eval.model import save_model, save_test_results, set_seed, plot_and_save_confusion_matrix
 from Train_and_Eval.model import train_model, evaluate_model
 from config import Config
-from datesets.IndianPinesDataset import load_data, prepare_data, create_data_loaders
+from datesets.Dataset import prepare_data, create_data_loaders
 from model_init import create_model
 from Dim.api import apply_dimension_reduction
+from datesets.datasets_load import load_dataset
 
 
 def main():
@@ -40,8 +41,8 @@ def main():
             f"配置参数：epochs={config.num_epochs}, batch_size={config.batch_size}, num_workers={config.num_workers}")
 
         # 加载和准备数据
-        data, labels = load_data(config.data_path, config.gt_path)
-        logger.info(f"数据加载完成：{config.data_path}")
+        data, labels, dataset_info = load_dataset(config.datasets)
+        logger.info(f"数据加载完成：{config.datasets}")
 
         data = apply_dimension_reduction(data, config)
         logger.info(f"使用{config.dim_reduction}降维完成")

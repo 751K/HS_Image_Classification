@@ -2,21 +2,18 @@
 import sys
 
 from src.model_init import AVAILABLE_MODELS
-from Dim.PCA import spectral_pca_reduction
-from Dim.kernel_PCA import spectral_kernel_pca_reduction
-from Dim.MDS import spectral_mds_reduction
-from Dim.UMAP import spectral_umap_reduction
 
 
 class Config:
     def __init__(self):
         self.model_name = self.select_model()
         self.num_epochs = 100
-        self.batch_size = 8
+        self.batch_size = 32
         self.num_workers = 4
         self.warmup_steps = 10
         self.learning_rate = 0.001
         self.seed = 42
+        self.datasets = 'Pavia' # 可选:'Indian', 'Pavia', 'Salinas'
 
         # self.resume_checkpoint = '../results/ResNet2D_0108_135525/checkpoint_epoch_40.pth'
         self.resume_checkpoint = None
@@ -35,7 +32,6 @@ class Config:
         self.mds_n_init = 4
         self.umap_n_neighbors = 15
         self.umap_min_dist = 0.1
-
 
 
     @staticmethod

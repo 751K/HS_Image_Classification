@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset, DataLoader
 
 
-class IndianPinesDataset(Dataset):
+class HSIDataset(Dataset):
     def __init__(self, data, labels, dim=3):
         self.dim = dim
         self.data = torch.as_tensor(data, dtype=torch.float32)
@@ -99,9 +99,9 @@ def prepare_data(data, labels, test_size=0.65, val_size=0.05, random_state=42, d
 
 
 def create_data_loaders(X_train, y_train, X_val, y_val, X_test, y_test, batch_size, num_workers, dim=1):
-    train_dataset = IndianPinesDataset(X_train, y_train, dim)
-    val_dataset = IndianPinesDataset(X_val, y_val, dim)
-    test_dataset = IndianPinesDataset(X_test, y_test, dim)
+    train_dataset = HSIDataset(X_train, y_train, dim)
+    val_dataset = HSIDataset(X_val, y_val, dim)
+    test_dataset = HSIDataset(X_test, y_test, dim)
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
