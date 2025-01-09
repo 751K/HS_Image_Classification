@@ -20,6 +20,7 @@ from datesets.datasets_load import load_dataset
 
 
 def main():
+    torch.autograd.set_detect_anomaly(True)
     try:
         config = Config()
         if config.model_name is None:
