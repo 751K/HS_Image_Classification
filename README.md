@@ -40,3 +40,9 @@
   - `model_init.py`: 模型初始化代码
 - `LICENSE`: 项目许可证文件
 - `README.md`: 项目说明文档
+
+## 运行环境
+由于代码中引入了Mamba模型，代码在Windows环境下使用WSL2运行，WSL2具体安装方法请参考[WSL2安装教程](https://docs.microsoft.com/zh-cn/windows/wsl/install)。
+- pytorch:2.10
+- python:3.12
+- CUDA:11.8
