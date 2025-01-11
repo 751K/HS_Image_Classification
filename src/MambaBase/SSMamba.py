@@ -7,20 +7,6 @@ from functools import partial
 from src.MambaBase.SSM import SSM
 
 
-def get_2d_sincos_pos_embed_from_grid(embed_dim, grid):
-    """
-    从网格生成2D正弦余弦位置嵌入
-    """
-    assert embed_dim % 2 == 0
-
-    # 使用一半维度编码grid_h
-    emb_h = get_1d_sincos_pos_embed_from_grid(embed_dim // 2, grid[0])  # (H*W, D/2)
-    emb_w = get_1d_sincos_pos_embed_from_grid(embed_dim // 2, grid[1])  # (H*W, D/2)
-
-    emb = np.concatenate([emb_h, emb_w], axis=1)  # (H*W, D)
-    return emb
-
-
 def get_1d_sincos_pos_embed_from_grid(embed_dim, pos):
     """
     从网格生成1D正弦余弦位置嵌入
@@ -133,6 +119,38 @@ class block_1D(nn.Module):
 
 
 class spectral_spatial_block(nn.Module):
+    """
+    空间-光谱块类，用于处理和融合高光谱图像的空间和光谱信息。
+
+    这个模块设计用于同时处理高光谱图像的空间和光谱特征。它包含两个独立的 1D 块
+    （一个用于空间特征，一个用于光谱特征），以及一个可选的特征融合机制。
+    这种设计允许模型分别捕获空间和光谱域的信息，然后通过融合步骤将它们结合起来。
+
+    Args:
+        embed_dim (int): 嵌入向量的维度。
+        bi (bool, optional): 是否在 1D 块中使用双向处理。默认为 False。
+        N (int, optional): 未使用的参数，为了兼容性保留。默认为 1。
+        drop_path (float, optional): 用于 1D 块的 drop path 概率。默认为 0.0。
+        norm_layer (nn.Module, optional): 用于 1D 块的归一化层类型。默认为 nn.LayerNorm。
+        cls (bool, optional): 是否在 1D 块中包含分类令牌。默认为 True。
+        fu (bool, optional): 是否启用特征融合。默认为 True。
+
+    Attributes:
+        spa_block (block_1D): 处理空间特征的 1D 块。
+        spe_block (block_1D): 处理光谱特征的 1D 块。
+        fu (bool): 是否启用特征融合。
+        l1 (nn.Sequential): 特征融合使用的线性层和激活函数（如果 fu=True）。
+
+    Example:
+        >>> embed_dim = 128
+        >>> block = spectral_spatial_block(embed_dim, bi=True, fu=True)
+        >>> x_spa = torch.randn(32, 100, embed_dim)  # (batch_size, sequence_length, embed_dim)
+        >>> x_spe = torch.randn(32, 100, embed_dim)
+        >>> x_spa_out, x_spe_out = block(x_spa, x_spe)
+        >>> print(x_spa_out.shape, x_spe_out.shape)
+        torch.Size([32, 100, 128]) torch.Size([32, 100, 128])
+    """
+
     def __init__(self, embed_dim, bi=False, N=1, drop_path=0.0, norm_layer=nn.LayerNorm, cls=True, fu=True):
         super(spectral_spatial_block, self).__init__()
         self.spa_block = block_1D(
@@ -155,18 +173,69 @@ class spectral_spatial_block(nn.Module):
             )
 
     def forward(self, x_spa: torch.Tensor, x_spe: torch.Tensor) -> tuple:
+        """
+        执行空间-光谱块的前向传播。
+
+        这个方法首先分别通过空间和光谱的 1D 块处理输入特征。
+        如果启用了特征融合（fu=True），则会计算空间和光谱特征的平均值，
+        通过一个线性层和 Sigmoid 激活函数生成注意力权重，
+        然后将这个权重应用到原始的空间和光谱特征上。
+
+        Args:
+            x_spa (torch.Tensor): 空间特征张量，形状为 (B, N_spa, embed_dim)
+                B: 批次大小
+                N_spa: 空间序列长度（patch数量 + 1，如果 cls=True）
+                embed_dim: 嵌入维度
+            x_spe (torch.Tensor): 光谱特征张量，形状为 (B, N_spe, embed_dim)
+                N_spe: 光谱序列长度（patch数量 + 1，如果 cls=True）
+
+        Returns:
+            tuple: 包含两个张量的元组：
+                - x_spa (torch.Tensor): 更新后的空间特征，形状为 (B, N_spa, embed_dim)
+                - x_spe (torch.Tensor): 更新后的光谱特征，形状为 (B, N_spe, embed_dim)
+
+        Note:
+            - 如果 fu=False，则直接返回经过各自 1D 块处理后的特征，不进行融合。
+            - 特征融合步骤使用了平均池化和元素级乘法，这可能会影响计算复杂度和内存使用。
+        """
         x_spa = self.spa_block(x_spa)
         x_spe = self.spe_block(x_spe)
+
         if self.fu:
-            x_spa_c = x_spa.mean(1)
-            x_spe_c = x_spe.mean(1)
-            sig = self.l1((x_spa_c + x_spe_c) / 2).unsqueeze(1)
-            x_spa = x_spa * sig
-            x_spe = x_spe * sig
+            x_spa_c = x_spa.mean(1)  # (B, embed_dim)
+            x_spe_c = x_spe.mean(1)  # (B, embed_dim)
+            sig = self.l1((x_spa_c + x_spe_c) / 2).unsqueeze(1)  # (B, 1, embed_dim)
+            x_spa = x_spa * sig  # (B, N_spa, embed_dim)
+            x_spe = x_spe * sig  # (B, N_spe, embed_dim)
+
         return x_spa, x_spe
 
 
 class SSMamba(nn.Module):
+    """
+    SSMamba 模型类，用于处理高光谱图像数据并进行分类。
+
+    这个模型使用空间-光谱块来处理输入的高光谱图像，并综合所有像素的信息进行分类。
+
+    Args:
+        input_channels (int): 输入图像的通道数。
+        num_classes (int): 分类的类别数。
+        embed_dim (int, optional): 嵌入维度。默认为 128。
+        depth (int, optional): 空间-光谱块的数量。默认为 4。
+        bi (bool, optional): 是否在空间-光谱块中使用双向处理。默认为 True。
+        norm_layer (nn.Module, optional): 归一化层类型。默认为 nn.LayerNorm。
+        fu (bool, optional): 是否在空间-光谱块中使用特征融合。默认为 True。
+
+    Attributes:
+        input_channels (int): 输入通道数。
+        embed_dim (int): 嵌入维度。
+        spa_embed (nn.Linear): 空间特征的嵌入层。
+        spe_embed (nn.Linear): 光谱特征的嵌入层。
+        blocks (nn.ModuleList): 空间-光谱块的列表。
+        norm (nn.Module): 归一化层。
+        head (nn.Linear): 分类头。
+    """
+
     def __init__(self, input_channels, num_classes, embed_dim=128, depth=4, bi=True,
                  norm_layer=nn.LayerNorm, fu=True):
         super().__init__()
@@ -177,55 +246,63 @@ class SSMamba(nn.Module):
         self.spa_embed = nn.Linear(input_channels, embed_dim)
         self.spe_embed = nn.Linear(input_channels, embed_dim)
 
-        self.spa_cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
-        self.spe_cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
-
         self.blocks = nn.ModuleList([
             spectral_spatial_block(embed_dim, bi, N=26, cls=True, fu=fu) for _ in range(depth)
         ])
 
-        self.head = nn.Linear(embed_dim, num_classes)
         self.norm = norm_layer(embed_dim)
+        self.head = nn.Linear(embed_dim, num_classes)
+        self.fusion_weight = nn.Parameter(torch.FloatTensor([0.5, 0.5]))
 
     def forward_features(self, x):
-        B, C, H, W = x.shape
+        """
+        前向传播特征提取部分。
 
-        # 将输入重塑并映射到嵌入空间
-        x = x.permute(0, 2, 3, 1).reshape(B, H * W, C)  # (B, H*W, C)
+        Args:
+            x (torch.Tensor): 输入张量，形状为 (B, C, H, W)
+                B: 批次大小, C: 输入通道数, H: 高度, W: 宽度
+
+        Returns:
+            torch.Tensor: 提取的特征，形状为 (B, H, W, embed_dim)
+        """
+        B, C, H, W = x.shape
+        x = x.permute(0, 2, 3, 1).reshape(B, H * W, C)
+
         x_spa = self.spa_embed(x)  # (B, H*W, embed_dim)
         x_spe = self.spe_embed(x)  # (B, H*W, embed_dim)
-
-        spa_cls_tokens = self.spa_cls_token.expand(B, -1, -1)
-        spe_cls_tokens = self.spe_cls_token.expand(B, -1, -1)
-        x_spa = torch.cat((x_spa, spa_cls_tokens), dim=1)
-        x_spe = torch.cat((x_spe, spe_cls_tokens), dim=1)
 
         # 通过光谱-空间块
         for blk in self.blocks:
             x_spa, x_spe = blk(x_spa, x_spe)
 
-        # 获取每个像素的特征
-        x_spa = x_spa[:, :-1, :]  # 移除分类令牌
-        x_spe = x_spe[:, :-1, :]  # 移除分类令牌
-        outcome = (x_spa + x_spe) / 2
+        outcome = self.fusion_weight[0] * x_spa + self.fusion_weight[1] * x_spe
+        outcome = self.norm(outcome)
 
         return outcome.view(B, H, W, -1)  # (B, H, W, embed_dim)
 
     def forward(self, x):
+        """
+        模型的前向传播。
+
+        Args:
+            x (torch.Tensor): 输入张量，形状为 (B, C, H, W)
+                B: 批次大小, C: 输入通道数, H: 高度, W: 宽度
+
+        Returns:
+            torch.Tensor: 分类输出，形状为 (B, num_classes)
+        """
         B, C, H, W = x.shape
-        features = self.forward_features(x)
+        features = self.forward_features(x)  # (B, H, W, embed_dim)
 
-        # 获取中心像素的特征
-        center_h, center_w = H // 2, W // 2
-        center_features = features[:, center_h, center_w, :]  # (B, embed_dim)
+        # 对所有像素的特征进行平均池化
+        global_features = features.mean(dim=[1, 2])  # (B, embed_dim)
 
-        # 对中心像素进行分类
-        output = self.head(center_features)  # (B, num_classes)
+        # 对全局特征进行分类
+        output = self.head(global_features)  # (B, num_classes)
         return output
 
 
 if __name__ == "__main__":
-    # TODO: fix model,现在效果有问题
     torch.manual_seed(42)
 
     # 设置模型参数
