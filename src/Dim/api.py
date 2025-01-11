@@ -2,6 +2,7 @@ from src.Dim.PCA import spectral_pca_reduction
 from src.Dim.kernel_PCA import spectral_kernel_pca_reduction
 from src.Dim.MDS import spectral_mds_reduction
 from src.Dim.UMAP import spectral_umap_reduction
+from src.Dim.NMF import spectral_nmf_reduction
 
 
 def apply_dimension_reduction(data, config, logger=None):
@@ -39,6 +40,8 @@ def apply_dimension_reduction(data, config, logger=None):
                                                n_neighbors=config.umap_n_neighbors,
                                                min_dist=config.umap_min_dist,
                                                random_seed=config.seed)
+    elif config.dim_reduction == 'NMF':
+        reduced_data, _ = spectral_nmf_reduction(data, n_components=config.n_components)
     else:
         raise ValueError(f"Unsupported dimension reduction method: {config.dim_reduction}")
     if logger is not None:
