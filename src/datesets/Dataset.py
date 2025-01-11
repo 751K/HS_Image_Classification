@@ -1,7 +1,8 @@
 import numpy as np
 import torch
-from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset, DataLoader
+from skimage.util import view_as_windows
+from sklearn.model_selection import train_test_split, StratifiedShuffleSplit
 
 
 class HSIDataset(Dataset):
@@ -26,18 +27,26 @@ def create_patches(data, labels, patch_size=5):
 
     # 对数据进行填充
     padded_data = np.pad(data, ((pad_width, pad_width), (pad_width, pad_width), (0, 0)), mode='reflect')
+    padded_labels = np.pad(labels, pad_width, mode='constant', constant_values=0)
 
-    patches = []
-    patch_labels = []
+    # 使用 view_as_windows 生成 patches
+    patches = view_as_windows(padded_data, (patch_size, patch_size, bands), step=1)
+    patches = patches.reshape(rows * cols, patch_size, patch_size, bands)
 
-    for i in range(rows):
-        for j in range(cols):
-            if labels[i, j] != 0:  # 只选择非背景像素
-                patch = padded_data[i:i + patch_size, j:j + patch_size, :]
-                patches.append(patch.transpose(2, 0, 1))  # 转换为 (C, H, W)
-                patch_labels.append(labels[i, j])  # 只使用中心像素的标签
+    # 确保 patch_labels 的形状与 patches 的第一个维度一致
+    patch_labels = padded_labels[pad_width:pad_width+rows, pad_width:pad_width+cols].flatten()
 
-    return np.array(patches), np.array(patch_labels)
+    # 找到有效的（非零）标签索引
+    valid_indices = np.where(patch_labels != 0)[0]
+
+    # 使用有效索引选择 patches 和 labels
+    patches = patches[valid_indices]
+    patch_labels = patch_labels[valid_indices]
+
+    # 转换 patches 的形状为 (num_patches, bands, patch_size, patch_size)
+    patches = patches.transpose(0, 3, 1, 2)
+
+    return patches, patch_labels
 
 
 def create_spectral_samples(data, labels, sequence_length=25):
@@ -65,46 +74,54 @@ def create_spectral_samples(data, labels, sequence_length=25):
 
 
 def prepare_data(data, labels, test_size=0.65, val_size=0.05, random_state=42, dim=1, patch_size=5, sequence_length=25):
+    if dim not in [1, 2, 3]:
+        raise ValueError("Dim must be 1, 2, or 3")
+
     if dim == 1:
         data = np.transpose(data, (2, 0, 1))  # 转置为 (bands, rows, cols)
         samples, sample_labels = create_spectral_samples(data, labels, sequence_length)
-
-        # 分割数据
-        num_sequences = samples.shape[2]
-        indices = np.arange(num_sequences)
-        train_indices, temp_indices = train_test_split(indices, test_size=test_size + val_size,
-                                                       random_state=random_state, stratify=sample_labels)
-        val_indices, test_indices = train_test_split(temp_indices, test_size=test_size / (test_size + val_size),
-                                                     random_state=random_state, stratify=sample_labels[temp_indices])
-
-        X_train = samples[:, :, train_indices]
-        X_val = samples[:, :, val_indices]
-        X_test = samples[:, :, test_indices]
-        y_train = sample_labels[train_indices]
-        y_val = sample_labels[val_indices]
-        y_test = sample_labels[test_indices]
-
-    elif dim == 2 or dim == 3:
-        # 保持原有的 dim=2 和 dim=3 的处理逻辑
+        num_samples = samples.shape[2]
+        X = samples.transpose(2, 0, 1)  # 调整为 (num_samples, bands, sequence_length)
+        y = sample_labels
+    else:  # dim == 2 or dim == 3
         patches, patch_labels = create_patches(data, labels, patch_size)
-
         if dim == 2:
-            patches = patches.reshape(patches.shape[0], patches.shape[1], patch_size, patch_size)
+            X = patches.reshape(patches.shape[0], patches.shape[1], patch_size, patch_size)
         else:  # dim == 3
-            patches = patches.reshape(patches.shape[0], 1, patches.shape[1], patch_size, patch_size)
+            X = patches.reshape(patches.shape[0], 1, patches.shape[1], patch_size, patch_size)
+        y = patch_labels
 
-        X_train, X_temp, y_train, y_temp = train_test_split(patches, patch_labels, test_size=test_size + val_size,
-                                                            random_state=random_state)
-        X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=test_size / (test_size + val_size),
-                                                        random_state=random_state)
-
-    else:
-        raise ValueError("Dim must be 1, 2, or 3")
+    X_train, y_train, X_val, y_val, X_test, y_test = optimized_split(X, y, test_size=0.65, val_size=0.05,
+                                                                     random_state=42)
 
     return X_train, y_train, X_val, y_val, X_test, y_test
 
 
-def create_data_loaders(X_train, y_train, X_val, y_val, X_test, y_test, batch_size, num_workers, dim=1):
+def optimized_split(X, y, test_size=0.65, val_size=0.05, random_state=42):
+    # 计算训练集大小
+    train_size = 1 - test_size - val_size
+
+    # 使用 StratifiedShuffleSplit 一次性分割数据
+    sss = StratifiedShuffleSplit(n_splits=1, test_size=1 - train_size, random_state=random_state)
+
+    for train_index, temp_index in sss.split(X, y):
+        X_train, X_temp = X[train_index], X[temp_index]
+        y_train, y_temp = y[train_index], y[temp_index]
+
+    # 计算验证集在剩余数据中的比例
+    val_ratio = val_size / (test_size + val_size)
+
+    # 再次使用 StratifiedShuffleSplit 分割验证集和测试集
+    sss_val = StratifiedShuffleSplit(n_splits=1, test_size=1 - val_ratio, random_state=random_state)
+
+    for val_index, test_index in sss_val.split(X_temp, y_temp):
+        X_val, X_test = X_temp[val_index], X_temp[test_index]
+        y_val, y_test = y_temp[val_index], y_temp[test_index]
+
+    return X_train, y_train, X_val, y_val, X_test, y_test
+
+
+def create_data_loaders(X_train, y_train, X_val, y_val, X_test, y_test, batch_size, num_workers, dim=1, logger=None):
     train_dataset = HSIDataset(X_train, y_train, dim)
     val_dataset = HSIDataset(X_val, y_val, dim)
     test_dataset = HSIDataset(X_test, y_test, dim)
@@ -114,10 +131,14 @@ def create_data_loaders(X_train, y_train, X_val, y_val, X_test, y_test, batch_si
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
     for inputs, labels in train_loader:
-        print(f"Inputs shape: {inputs.shape}")
-        print(f"Labels shape: {labels.shape}")
         break  # 只打印第一个batch
 
+    try:
+        inputs, labels = next(iter(train_loader))
+        logger.info(f"Inputs shape: {inputs.shape}")
+        logger.info(f"Labels shape: {labels.shape}")
+    except Exception as e:
+        logger.error(f"An error occurred while checking the data loaders: {e}")
     return train_loader, val_loader, test_loader
 
 

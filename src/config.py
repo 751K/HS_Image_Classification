@@ -1,20 +1,28 @@
 # config.py
 import sys
-
+import torch
 from src.model_init import AVAILABLE_MODELS
 
 
 class Config:
     def __init__(self):
-        self.model_name = self.select_model()
-        self.num_epochs = 100
+        self.test_mode = False
+        if self.test_mode:
+            self.model_name = 'ResNet2D'
+            self.num_epochs = 2
+            torch.autograd.set_detect_anomaly = True
+        else:
+            self.model_name = self.select_model()
+            self.num_epochs = 100
+            torch.backends.cudnn.benchmark = True
+
         self.batch_size = 64
-        self.num_workers = 16
+        self.num_workers = 0
         self.warmup_steps = 10
         self.learning_rate = 0.001
         self.seed = 42
         self.datasets = 'Pavia'  # 可选:'Indian', 'Pavia', 'Salinas'
-        self.patch_size = 9
+        self.patch_size = 3
         # self.resume_checkpoint = '../results/ResNet2D_0108_135525/checkpoint_epoch_40.pth'
         self.resume_checkpoint = None
 
@@ -22,7 +30,6 @@ class Config:
         self.perform_dim_reduction = True
         self.dim_reduction = 'PCA'  # 可选: 'PCA', 'KernelPCA', 'MDS', 'UMAP'
         self.n_components = 80  # 降维后的组件数
-
         self.pca_whiten = False
         self.kpca_kernel = 'rbf'
         self.kpca_gamma = None

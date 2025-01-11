@@ -29,7 +29,6 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
                 save_dir, start_epoch=0):
     best_val_accuracy = 0
     best_model = None
-    dim = model.dim
 
     for epoch in range(start_epoch, num_epochs):
         model.train()
@@ -43,7 +42,6 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
 
             outputs = model(inputs)
 
-            # 移除对输出的重塑操作，因为现在输出已经是正确的形状
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
@@ -77,7 +75,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
             logger.info('New best model saved with validation accuracy: %.4f', best_val_accuracy)
 
         # 每10个epoch保存一次检查点
-        if (epoch + 1) % 10 == 0:
+        if (epoch + 1) % 20 == 0:
             checkpoint = {
                 'epoch': epoch + 1,
                 'model_state_dict': model.state_dict(),
@@ -108,7 +106,6 @@ def evaluate_model(model, data_loader, criterion, device, logger):
 
             outputs = model(inputs)
 
-            # 移除对输出的重塑操作，因为现在输出已经是正确的形状
             loss = criterion(outputs, labels)
             running_loss += loss.item() * inputs.size(0)
 
@@ -183,6 +180,7 @@ def plot_and_save_confusion_matrix(labels, preds, num_classes, save_path):
         save_path (str): 保存图像的路径。
     """
     # 计算混淆矩阵
+    num_classes=num_classes-1
     cm = confusion_matrix(labels, preds)
 
     # 可视化混淆矩阵

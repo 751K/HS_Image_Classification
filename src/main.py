@@ -2,9 +2,10 @@ import os
 import sys
 from datetime import datetime
 
-import numpy as np
 import torch
 import torch.nn as nn
+import numpy as np
+
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
@@ -20,9 +21,6 @@ from datesets.datasets_load import load_dataset
 
 
 def main():
-    torch.autograd.set_detect_anomaly(True)
-    if torch.cuda.is_available():
-        torch.backends.cudnn.benchmark = True
     try:
         config = Config()
         if config.model_name is None:
@@ -38,17 +36,18 @@ def main():
 
         # 设置日志记录器
         logger = setup_logger(save_dir)
+        logger.info("程序开始执行")
 
         logger.info(f"使用模型: {config.model_name}")
         logger.info(
             f"配置参数：epochs={config.num_epochs}, batch_size={config.batch_size}, num_workers={config.num_workers}")
 
         # 加载和准备数据
-        data, labels, dataset_info = load_dataset(config.datasets)
+        data, labels, dataset_info = load_dataset(config.datasets, logger)
 
         logger.info(f"数据加载完成：{config.datasets}")
 
-        data = apply_dimension_reduction(data, config)
+        data = apply_dimension_reduction(data, config, logger)
         logger.info(f"使用{config.dim_reduction}降维完成")
 
         num_classes = len(np.unique(labels))
@@ -56,24 +55,27 @@ def main():
 
         # 创建模型
         model = create_model(config.model_name, input_channels, num_classes)
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        model.to(device)
+
         logger.info(f"模型创建完成：{config.model_name}")
 
         # 准备数据
         X_train, y_train, X_val, y_val, X_test, y_test = prepare_data(data, labels,
-                                                                      dim=model.dim,patch_size=config.patch_size)
+                                                                      dim=model.dim, patch_size=config.patch_size)
+        logger.info("数据预处理完成")
         train_loader, val_loader, test_loader = create_data_loaders(
-            X_train, y_train, X_val, y_val, X_test, y_test, config.batch_size, config.num_workers, dim=model.dim,
+            X_train, y_train, X_val, y_val, X_test, y_test, config.batch_size, config.num_workers,
+            dim=model.dim, logger=logger
         )
-
-        # 设置设备
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        model.to(device)
+        logger.info("Dataloader创建完成")
 
         # 设置训练参数
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)
         total_steps = config.num_epochs * len(train_loader)
         scheduler = WarmupCosineSchedule(optimizer, config.warmup_steps, total_steps)
+        logger.info("训练参数设置完成")
 
         # 设置TensorBoard
         writer = SummaryWriter(log_dir=os.path.join(save_dir, 'tensorboard'))
