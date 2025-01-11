@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="cu118py312" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="wsl2cu118py312" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="rapids-24.12" project-jdk-type="Python SDK" />
 </project>

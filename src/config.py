@@ -28,7 +28,7 @@ class Config:
 
         # 降维相关配置
         self.perform_dim_reduction = True
-        self.dim_reduction = 'PCA'  # 可选: 'PCA', 'KernelPCA', 'MDS', 'UMAP'
+        self.dim_reduction = 'PCA'  # 可选: 'PCA', 'KernelPCA', 'MDS', 'UMAP'，‘NMF’
         self.n_components = 80  # 降维后的组件数
         self.pca_whiten = False
         self.kpca_kernel = 'rbf'
