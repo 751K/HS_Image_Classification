@@ -8,13 +8,13 @@ class Config:
     def __init__(self):
         self.model_name = self.select_model()
         self.num_epochs = 100
-        self.batch_size = 128
-        self.num_workers = 4
+        self.batch_size = 64
+        self.num_workers = 16
         self.warmup_steps = 10
         self.learning_rate = 0.001
         self.seed = 42
-        self.datasets = 'Pavia' # 可选:'Indian', 'Pavia', 'Salinas'
-
+        self.datasets = 'Pavia'  # 可选:'Indian', 'Pavia', 'Salinas'
+        self.patch_size = 9
         # self.resume_checkpoint = '../results/ResNet2D_0108_135525/checkpoint_epoch_40.pth'
         self.resume_checkpoint = None
 
@@ -30,7 +30,6 @@ class Config:
         self.mds_n_init = 4
         self.umap_n_neighbors = 15
         self.umap_min_dist = 0.1
-
 
     @staticmethod
     def select_model():

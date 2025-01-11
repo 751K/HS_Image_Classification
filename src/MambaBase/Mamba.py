@@ -22,6 +22,9 @@ class MambaBlock(nn.Module):
         self.in_proj = nn.Linear(d_model, 2 * d_model)
         self.out_proj = nn.Linear(d_model, d_model)
 
+        # 添加批量归一化
+        self.bn = nn.BatchNorm1d(d_model)
+
     def forward(self, x):
         B, L, D = x.shape
 
@@ -45,11 +48,16 @@ class MambaBlock(nn.Module):
 
         # 残差连接和输出投影
         output = self.out_proj(y * F.silu(res))
-        return output + x
+        output = output + x
+
+        # 应用批量归一化
+        output = self.bn(output.transpose(1, 2)).transpose(1, 2)
+
+        return output
 
 
 class MambaModel(nn.Module):
-    def __init__(self, input_channels, num_classes,d_model=64, d_state=16, d_conv=4, num_layers=6):
+    def __init__(self, input_channels, num_classes, d_model=64, d_state=16, d_conv=4, num_layers=6):
         super().__init__()
         self.embed = nn.Linear(input_channels, d_model)
         self.layers = nn.ModuleList([MambaBlock(d_model, d_state, d_conv) for _ in range(num_layers)])
@@ -57,19 +65,60 @@ class MambaModel(nn.Module):
         self.head = nn.Linear(d_model, num_classes)
         self.dim = 2
 
+        self.input_bn = nn.BatchNorm2d(input_channels)
+        self.global_avg_pool = nn.AdaptiveAvgPool1d(1)
+        self.final_bn = nn.BatchNorm1d(d_model)
+
+        self._init_weights()
+
+    def _init_weights(self):
+        def _init_weight(m):
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                if m.bias is not None:
+                    nn.init.zeros_(m.bias)
+            elif isinstance(m, nn.Conv1d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                if m.bias is not None:
+                    nn.init.zeros_(m.bias)
+            elif isinstance(m, nn.BatchNorm1d) or isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.LayerNorm):
+                nn.init.constant_(m.weight, 1.0)
+                nn.init.constant_(m.bias, 0)
+
+        # 应用初始化
+        self.apply(_init_weight)
+
+        # 特别处理 MambaBlock 中的 dt 参数
+        for layer in self.layers:
+            if hasattr(layer, 'dt'):
+                nn.init.normal_(layer.dt, mean=0.0, std=0.02)
+
+        # 初始化嵌入层
+        if isinstance(self.embed, nn.Linear):
+            nn.init.xavier_uniform_(self.embed.weight)
+            if self.embed.bias is not None:
+                nn.init.zeros_(self.embed.bias)
+
     def forward(self, x):
         B, C, H, W = x.shape
-        x = x.permute(0, 2, 3, 1).reshape(B, H * W, C)  # [B, 25, C]
 
-        x = self.embed(x)  # [B, 25, d_model]
+        x = self.input_bn(x)
+        x = x.permute(0, 2, 3, 1).reshape(B, H * W, C)  # [B, H*W, C]
+        x = self.embed(x)  # [B, H*W, d_model]
 
         for layer in self.layers:
             x = layer(x)
 
         x = self.norm(x)
-        x = self.head(x)  # [B, 25, num_classes]
+        x = x.transpose(1, 2)  # [B, d_model, H*W]
+        x = self.global_avg_pool(x).squeeze(-1)  # [B, d_model]
+        x = self.final_bn(x)
+        output = self.head(x)  # [B, num_classes]
 
-        return x.transpose(1, 2).reshape(B, -1, H, W)  # [B, num_classes, 5, 5]
+        return output
 
 
 if __name__ == '__main__':
@@ -77,10 +126,19 @@ if __name__ == '__main__':
     num_classes = 16
     model = MambaModel(200, num_classes)
 
-    # 创建一个示例输入
-    x = torch.randn(32, 200, 5, 5)  # (batch_size, channels, height, width)
+    # 测试不同输入尺寸
+    test_sizes = [(3, 3), (5, 5), (7, 7), (9, 9)]
 
-    # 前向传播
-    output = model(x)
+    for size in test_sizes:
+        H, W = size
+        x = torch.randn(32, 200, H, W)  # (batch_size, channels, height, width)
 
-    print(output.shape)  # 应该输出 torch.Size([32, 10, 5, 5])
+        # 前向传播
+        output = model(x)
+
+        print(f"Input shape: {x.shape}")
+        print(f"Output shape: {output.shape}")
+
+    # 计算模型参数数量
+    total_params = sum(p.numel() for p in model.parameters())
+    print(f"Total parameters: {total_params}")

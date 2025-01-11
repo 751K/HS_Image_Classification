@@ -25,7 +25,8 @@ def set_seed(seed):
     torch.backends.cudnn.benchmark = False
 
 
-def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler, num_epochs, device, writer, logger, save_dir, start_epoch=0):
+def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler, num_epochs, device, writer, logger,
+                save_dir, start_epoch=0):
     best_val_accuracy = 0
     best_model = None
     dim = model.dim
@@ -42,16 +43,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
 
             outputs = model(inputs)
 
-            if dim == 2 or dim == 3:
-                outputs = outputs.permute(0, 2, 3, 1).contiguous().view(-1, outputs.size(1))
-                labels = labels.view(-1)
-            elif dim == 1:
-                # 对于dim=1，我们不需要改变outputs的形状，因为它已经是(batch_size, num_classes)
-                pass
-            else:
-                outputs = outputs.view(-1, outputs.size(1))
-                labels = labels.view(-1)
-
+            # 移除对输出的重塑操作，因为现在输出已经是正确的形状
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
@@ -65,11 +57,8 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
             if i % 100 == 99:
                 logger.info('Epoch [%d/%d], Step [%d/%d], Loss: %.4f',
                             epoch + 1, num_epochs, i + 1, len(train_loader), loss.item())
-        if dim ==1:
-            epoch_loss = running_loss / len(train_loader.dataset)
-        else:
-            epoch_loss = running_loss / (len(train_loader.dataset) * 5 * 5)
 
+        epoch_loss = running_loss / len(train_loader.dataset)
         epoch_acc = correct / total
 
         val_loss, val_accuracy, _, _ = evaluate_model(model, val_loader, criterion, device, logger)
@@ -103,6 +92,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
 
     return best_model
 
+
 def evaluate_model(model, data_loader, criterion, device, logger):
     model.eval()
     running_loss = 0.0
@@ -110,7 +100,6 @@ def evaluate_model(model, data_loader, criterion, device, logger):
     total = 0
     all_preds = []
     all_labels = []
-    dim = model.dim
 
     with torch.no_grad():
         for inputs, labels in data_loader:
@@ -119,16 +108,7 @@ def evaluate_model(model, data_loader, criterion, device, logger):
 
             outputs = model(inputs)
 
-            if dim == 2 or dim == 3:
-                outputs = outputs.permute(0, 2, 3, 1).contiguous().view(-1, outputs.size(1))
-                labels = labels.view(-1)
-            elif dim == 1:
-                # 对于dim=1，我们不需要改变outputs的形状
-                pass
-            else:
-                outputs = outputs.view(-1, outputs.size(1))
-                labels = labels.view(-1)
-
+            # 移除对输出的重塑操作，因为现在输出已经是正确的形状
             loss = criterion(outputs, labels)
             running_loss += loss.item() * inputs.size(0)
 
@@ -139,15 +119,12 @@ def evaluate_model(model, data_loader, criterion, device, logger):
             all_labels.extend(labels.cpu().numpy())
 
     accuracy = correct / total
-
-    if dim ==1:
-        avg_loss = running_loss / total
-    else:
-        avg_loss = running_loss / (total * 5 * 5)  # 考虑5x5的patch
+    avg_loss = running_loss / total
 
     logger.info("平均损失: %.4f, 准确率: %.4f", avg_loss, accuracy)
 
     return avg_loss, accuracy, all_preds, all_labels
+
 
 def save_model(state_dict, path):
     """

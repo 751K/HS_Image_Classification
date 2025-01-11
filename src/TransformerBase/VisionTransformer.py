@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import math
 
 
 class PatchEmbedding(nn.Module):
@@ -8,8 +9,8 @@ class PatchEmbedding(nn.Module):
         self.proj = nn.Linear(in_channels, embed_dim)
 
     def forward(self, x):
-        x = x.permute(0, 2, 3, 1).flatten(1, 2)  # (B, 25, in_channels)
-        return self.proj(x)  # (B, 25, embed_dim)
+        x = x.flatten(2).transpose(1, 2)  # (B, H*W, C)
+        return self.proj(x)  # (B, H*W, embed_dim)
 
 
 class TransformerEncoder(nn.Module):
@@ -39,8 +40,7 @@ class VisionTransformer(nn.Module):
         super().__init__()
         self.patch_embed = PatchEmbedding(input_channels, embed_dim)
         self.dim = 2
-        self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
-        self.pos_embed = nn.Parameter(torch.zeros(1, 26, embed_dim))  # 25 + 1 for cls token
+        self.pos_embed = nn.Parameter(torch.zeros(1, 1000, embed_dim))  # 支持最大1000个像素
         self.blocks = nn.ModuleList([
             TransformerEncoder(embed_dim, num_heads, mlp_ratio, qkv_bias, dropout)
             for _ in range(depth)
@@ -50,29 +50,35 @@ class VisionTransformer(nn.Module):
 
     def forward(self, x):
         B, C, H, W = x.shape
-        x = self.patch_embed(x)  # (B, 25, embed_dim)
+        x = self.patch_embed(x)  # (B, H*W, embed_dim)
 
-        cls_tokens = self.cls_token.expand(B, -1, -1)
-        x = torch.cat((cls_tokens, x), dim=1)  # (B, 26, embed_dim)
-        x = x + self.pos_embed
+        # 添加位置编码
+        x = x + self.pos_embed[:, :H * W, :]
 
         for block in self.blocks:
             x = block(x)
 
         x = self.norm(x)
-        x = self.head(x[:, 1:])  # 不使用 cls token
-        return x.transpose(1, 2).reshape(B, -1, H, W)  # (B, num_classes, 5, 5)
+
+        # 只取中心位置的输出
+        center_idx = H * W // 2
+        x = x[:, center_idx, :]  # (B, embed_dim)
+
+        x = self.head(x)  # (B, num_classes)
+        return x
 
 
-if __name__ == '__main__':
-    # 实例化模型
-    num_classes = 10
-    model = VisionTransformer(200, num_classes)
+if __name__ == "__main__":
+    # 使用示例
+    model = VisionTransformer(input_channels=3, num_classes=10, embed_dim=64, depth=6, num_heads=8)
 
-    # 创建一个示例输入
-    x = torch.randn(32, 200, 5, 5)  # (batch_size, channels, height, width)
+    # 测试不同输入尺寸
+    test_inputs = [
+        torch.randn(1, 3, 3, 3),
+        torch.randn(1, 3, 5, 5),
+        torch.randn(1, 3, 7, 7)
+    ]
 
-    # 前向传播
-    output = model(x)
-
-    print(output.shape)  # 应该输出 torch.Size([32, 10, 5, 5])
+    for input_tensor in test_inputs:
+        output = model(input_tensor)
+        print(f"Input shape: {input_tensor.shape}, Output shape: {output.shape}")

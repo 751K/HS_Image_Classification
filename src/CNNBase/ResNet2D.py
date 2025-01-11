@@ -48,7 +48,8 @@ class ResNet2D(nn.Module):
         self.layer3 = self._make_layer(256, 2, dilation=4)
         self.layer4 = self._make_layer(512, 2, dilation=8)
 
-        self.final_conv = nn.Conv2d(512, num_classes, kernel_size=1)
+        self.global_avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.fc = nn.Linear(512, num_classes)
 
     def _make_layer(self, out_channels: int, num_blocks: int, dilation: int = 1) -> nn.Sequential:
         layers: List[ResidualBlock2D] = [ResidualBlock2D(self.in_channels, out_channels, dilation=dilation)]
@@ -65,7 +66,9 @@ class ResNet2D(nn.Module):
         x = self.layer3(x)
         x = self.layer4(x)
 
-        x = self.final_conv(x)
+        x = self.global_avg_pool(x)
+        x = x.view(x.size(0), -1)
+        x = self.fc(x)
 
         return x
 
@@ -75,16 +78,19 @@ class ResNet2D(nn.Module):
 
 if __name__ == '__main__':
     # 测试代码
-    batch_size, in_channels, height, width = 16, 200, 3, 3
-    input_data = torch.randn(batch_size, in_channels, height, width)
-
-    # 创建模型实例
+    batch_size, in_channels = 16, 200
     n_classes = 16
     model = ResNet2D(input_channels=in_channels, num_classes=n_classes)
 
-    # 前向传播
-    output = model(input_data)
+    # 测试不同输入尺寸
+    for size in [(3, 3), (5, 5), (7, 7), (9, 9)]:
+        height, width = size
+        input_data = torch.randn(batch_size, in_channels, height, width)
 
-    print(f"Input shape: {input_data.shape}")
-    print(f"Output shape: {output.shape}")
+        # 前向传播
+        output = model(input_data)
+
+        print(f"Input shape: {input_data.shape}")
+        print(f"Output shape: {output.shape}")
+
     print(f"Model structure: {model}")

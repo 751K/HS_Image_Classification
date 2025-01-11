@@ -24,9 +24,8 @@ def create_patches(data, labels, patch_size=5):
     rows, cols, bands = data.shape
     pad_width = patch_size // 2
 
-    # 对数据和标签进行填充
+    # 对数据进行填充
     padded_data = np.pad(data, ((pad_width, pad_width), (pad_width, pad_width), (0, 0)), mode='reflect')
-    padded_labels = np.pad(labels, ((pad_width, pad_width), (pad_width, pad_width)), mode='constant', constant_values=0)
 
     patches = []
     patch_labels = []
@@ -35,9 +34,8 @@ def create_patches(data, labels, patch_size=5):
         for j in range(cols):
             if labels[i, j] != 0:  # 只选择非背景像素
                 patch = padded_data[i:i + patch_size, j:j + patch_size, :]
-                label_patch = padded_labels[i:i + patch_size, j:j + patch_size]
-                patches.append(patch.transpose(2, 0, 1))  # 转换为 (200, 5, 5)
-                patch_labels.append(label_patch)
+                patches.append(patch.transpose(2, 0, 1))  # 转换为 (C, H, W)
+                patch_labels.append(labels[i, j])  # 只使用中心像素的标签
 
     return np.array(patches), np.array(patch_labels)
 

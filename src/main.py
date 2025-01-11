@@ -21,6 +21,8 @@ from datesets.datasets_load import load_dataset
 
 def main():
     torch.autograd.set_detect_anomaly(True)
+    if torch.cuda.is_available():
+        torch.backends.cudnn.benchmark = True
     try:
         config = Config()
         if config.model_name is None:
@@ -43,6 +45,7 @@ def main():
 
         # 加载和准备数据
         data, labels, dataset_info = load_dataset(config.datasets)
+
         logger.info(f"数据加载完成：{config.datasets}")
 
         data = apply_dimension_reduction(data, config)
@@ -56,7 +59,8 @@ def main():
         logger.info(f"模型创建完成：{config.model_name}")
 
         # 准备数据
-        X_train, y_train, X_val, y_val, X_test, y_test = prepare_data(data, labels, dim=model.dim)
+        X_train, y_train, X_val, y_val, X_test, y_test = prepare_data(data, labels,
+                                                                      dim=model.dim,patch_size=config.patch_size)
         train_loader, val_loader, test_loader = create_data_loaders(
             X_train, y_train, X_val, y_val, X_test, y_test, config.batch_size, config.num_workers, dim=model.dim,
         )
