@@ -1,3 +1,4 @@
+# model.py
 import json
 import os
 import random
@@ -6,7 +7,7 @@ import numpy as np
 import seaborn as sns
 import torch
 from matplotlib import pyplot as plt
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, accuracy_score
 
 
 def set_seed(seed):
@@ -94,8 +95,6 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
 def evaluate_model(model, data_loader, criterion, device, logger):
     model.eval()
     running_loss = 0.0
-    correct = 0
-    total = 0
     all_preds = []
     all_labels = []
 
@@ -110,17 +109,32 @@ def evaluate_model(model, data_loader, criterion, device, logger):
             running_loss += loss.item() * inputs.size(0)
 
             _, predicted = torch.max(outputs.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
             all_preds.extend(predicted.cpu().numpy())
             all_labels.extend(labels.cpu().numpy())
 
-    accuracy = correct / total
-    avg_loss = running_loss / total
+    # 转换为 numpy 数组
+    all_preds = np.array(all_preds)
+    all_labels = np.array(all_labels)
 
-    logger.info("平均损失: %.4f, 准确率: %.4f", avg_loss, accuracy)
+    # 计算总体准确率
+    accuracy = accuracy_score(all_labels, all_preds)
+    avg_loss = running_loss / len(all_labels)
 
-    return avg_loss, accuracy, all_preds, all_labels
+    # 计算每个类别的准确率
+    unique_classes = np.unique(all_labels)
+    class_accuracies = {}
+    for class_id in unique_classes:
+        class_mask = all_labels == class_id
+        class_accuracy = accuracy_score(all_labels[class_mask], all_preds[class_mask])
+        class_accuracies[class_id] = class_accuracy
+
+    # 输出结果
+    logger.info("平均损失: %.4f, 总体准确率: %.4f", avg_loss, accuracy)
+    logger.info("\n各类别准确率:")
+    for class_id, class_accuracy in class_accuracies.items():
+        logger.info("类别 %d: 准确率 = %.4f", class_id, class_accuracy)
+
+    return avg_loss, accuracy, all_preds, all_labels, class_accuracies
 
 
 def save_model(state_dict, path):
@@ -180,7 +194,7 @@ def plot_and_save_confusion_matrix(labels, preds, num_classes, save_path):
         save_path (str): 保存图像的路径。
     """
     # 计算混淆矩阵
-    num_classes=num_classes-1
+    num_classes = num_classes - 1
     cm = confusion_matrix(labels, preds)
 
     # 可视化混淆矩阵

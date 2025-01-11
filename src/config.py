@@ -6,9 +6,9 @@ from src.model_init import AVAILABLE_MODELS
 
 class Config:
     def __init__(self):
-        self.test_mode = False
+        self.test_mode = True
         if self.test_mode:
-            self.model_name = 'ResNet2D'
+            self.model_name = 'SSMamba'
             self.num_epochs = 2
             torch.autograd.set_detect_anomaly = True
         else:
@@ -23,8 +23,8 @@ class Config:
         self.seed = 42
         self.datasets = 'Pavia'  # 可选:'Indian', 'Pavia', 'Salinas'
         self.patch_size = 3
-        # self.resume_checkpoint = '../results/ResNet2D_0108_135525/checkpoint_epoch_40.pth'
-        self.resume_checkpoint = None
+        self.resume_checkpoint = '../results/SSMamba_0111_221046/checkpoint_epoch_100.pth'
+        # self.resume_checkpoint = None
 
         # 降维相关配置
         self.perform_dim_reduction = True

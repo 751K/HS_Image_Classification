@@ -1,3 +1,4 @@
+# main.py
 import os
 import sys
 from datetime import datetime
@@ -99,14 +100,17 @@ def main():
         logger.info("开始训练模型...")
         best_model_state_dict = train_model(model, train_loader, val_loader, criterion, optimizer, scheduler,
                                             config.num_epochs, device, writer, logger, save_dir, start_epoch)
-
+        logger.info("模型训练完成")
         # 保存最佳模型
         model_save_path = os.path.join(save_dir, "best_model.pth")
         save_model(best_model_state_dict, model_save_path)
+        logger.info(f"最佳模型已保存到: {model_save_path}")
 
+        # TODO: 早停策略
         # 评估模型
-        model.load_state_dict(best_model_state_dict)
-        avg_loss, accuracy, all_preds, all_labels = evaluate_model(model, test_loader, criterion, device, logger)
+        # model.load_state_dict(best_model_state_dict)
+        avg_loss, accuracy, all_preds, all_labels, class_accuracies = evaluate_model(model, test_loader, criterion,
+                                                                                     device, logger)
 
         # 保存结果和生成可视化
         results_save_path = os.path.join(save_dir, "test_results.json")
