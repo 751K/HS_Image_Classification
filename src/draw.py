@@ -139,8 +139,6 @@ if __name__ == "__main__":
     checkpoint_path = config.resume_checkpoint
 
     load_checkpoint(checkpoint_path, model, device)
-
-    class_names = ['Background', 'Asphalt', 'Meadows', 'Gravel', 'Trees', 'Painted Metal Sheets', 'Bare Soil',
-                   'Bitumen', 'Self-Blocking Bricks', 'Shadow']
+    class_names = dataset_info
 
     classification_map = visualize_classification(model, data, labels, device, config, class_names)

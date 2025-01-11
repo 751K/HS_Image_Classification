@@ -108,7 +108,8 @@ def main():
 
         # TODO: 早停策略
         # 评估模型
-        # model.load_state_dict(best_model_state_dict)
+        if config.test_mode is not True:
+            model.load_state_dict(best_model_state_dict)
         avg_loss, accuracy, all_preds, all_labels, class_accuracies = evaluate_model(model, test_loader, criterion,
                                                                                      device, logger)
 
