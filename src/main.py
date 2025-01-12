@@ -83,12 +83,7 @@ def main():
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
             start_epoch = checkpoint['epoch']
-            best_val_accuracy = checkpoint['best_val_accuracy']
-            best_model = checkpoint['best_model']
             logger.info(f"从断点 {config.resume_checkpoint} 恢复训练，从 epoch {start_epoch} 开始")
-        else:
-            best_val_accuracy = 0
-            best_model = None
 
         # 训练模型
         logger.info("开始训练模型...")
@@ -112,7 +107,7 @@ def main():
 
         confusion_matrix_save_path = os.path.join(config.save_dir, "confusion_matrix.png")
         plot_and_save_confusion_matrix(all_labels, all_preds, num_classes, confusion_matrix_save_path)
-        classification_map = visualize_classification(model, data, labels, device, config, dataset_info)
+        visualize_classification(model, data, labels, device, config, dataset_info)
         writer.close()
         logger.info("程序执行完毕")
 

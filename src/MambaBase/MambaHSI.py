@@ -56,36 +56,36 @@ class SpeMamba(nn.Module):
             nn.SiLU()
         )
 
-    def padding_feature(self, x):
+    def padding_feature(self, input_feature):
         """
         对输入特征进行填充。
 
         Args:
-            x (torch.Tensor): 输入张量。
+            input_feature (torch.Tensor): 输入张量。
 
         Returns:
             torch.Tensor: 填充后的张量。
         """
-        B, C, H, W = x.shape
+        B, C, H, W = input_feature.shape
         if C < self.channel_num:
             pad_c = self.channel_num - C
-            pad_features = torch.zeros((B, pad_c, H, W)).to(x.device)
-            cat_features = torch.cat([x, pad_features], dim=1)
+            pad_features = torch.zeros((B, pad_c, H, W)).to(input_feature.device)
+            cat_features = torch.cat([input_feature, pad_features], dim=1)
             return cat_features
         else:
-            return x
+            return input_feature
 
-    def forward(self, x):
+    def forward(self, spe_input):
         """
         前向传播。
 
         Args:
-            x (torch.Tensor): 输入张量。
+            spe_input (torch.Tensor): 输入张量。
 
         Returns:
             torch.Tensor: 处理后的张量。
         """
-        x_pad = self.padding_feature(x)
+        x_pad = self.padding_feature(spe_input)
         x_pad = x_pad.permute(0, 2, 3, 1).contiguous()
         B, H, W, C_pad = x_pad.shape
         x_flat = x_pad.view(B * H * W, self.token_num, self.group_channel_num)
@@ -94,7 +94,7 @@ class SpeMamba(nn.Module):
         x_recon = x_recon.permute(0, 3, 1, 2).contiguous()
         x_proj = self.proj(x_recon)
         if self.use_residual:
-            return x + x_proj
+            return spe_input + x_proj
         else:
             return x_proj
 
@@ -132,17 +132,17 @@ class SpaMamba(nn.Module):
                 nn.SiLU()
             )
 
-    def forward(self, x):
+    def forward(self, spa_input):
         """
         前向传播。
 
         Args:
-            x (torch.Tensor): 输入张量。
+            spa_input (torch.Tensor): 输入张量。
 
         Returns:
             torch.Tensor: 处理后的张量。
         """
-        x_re = x.permute(0, 2, 3, 1).contiguous()
+        x_re = spa_input.permute(0, 2, 3, 1).contiguous()
         B, H, W, C = x_re.shape
         x_flat = x_re.view(1, -1, C)
         x_flat = self.mamba(x_flat)
@@ -152,7 +152,7 @@ class SpaMamba(nn.Module):
         if self.use_proj:
             x_recon = self.proj(x_recon)
         if self.use_residual:
-            return x_recon + x
+            return x_recon + spa_input
         else:
             return x_recon
 
@@ -189,25 +189,25 @@ class BothMamba(nn.Module):
         self.spa_mamba = SpaMamba(channels, use_residual=use_residual, group_num=group_num)
         self.spe_mamba = SpeMamba(channels, token_num=token_num, use_residual=use_residual, group_num=group_num)
 
-    def forward(self, x):
+    def forward(self, ss_input):
         """
         前向传播。
 
         Args:
-            x (torch.Tensor): 输入张量。
+            ss_input (torch.Tensor): 输入张量。
 
         Returns:
             torch.Tensor: 处理后的张量。
         """
-        spa_x = self.spa_mamba(x)
-        spe_x = self.spe_mamba(x)
+        spa_x = self.spa_mamba(ss_input)
+        spe_x = self.spe_mamba(ss_input)
         if self.use_att:
             weights = self.softmax(self.weights)
             fusion_x = spa_x * weights[0] + spe_x * weights[1]
         else:
             fusion_x = spa_x + spe_x
         if self.use_residual:
-            return fusion_x + x
+            return fusion_x + ss_input
         else:
             return fusion_x
 
@@ -249,12 +249,12 @@ class MambaHSI(nn.Module):
         # 全局平均池化层
         self.global_avg_pool = nn.AdaptiveAvgPool2d(1)
 
-    def forward(self, x):
-        x = self.patch_embedding(x)
-        x = self.mamba(x)
-        x = self.cls_head(x)
-        x = self.global_avg_pool(x)
-        return x.view(x.size(0), -1)  # 将输出展平为 (batch, num_classes)
+    def forward(self, model_input):
+        model_input = self.patch_embedding(model_input)
+        model_input = self.mamba(model_input)
+        model_input = self.cls_head(model_input)
+        model_input = self.global_avg_pool(model_input)
+        return model_input.view(model_input.size(0), -1)  # 将输出展平为 (batch, num_classes)
 
 # 测试代码
 if __name__ == "__main__":
@@ -284,7 +284,8 @@ if __name__ == "__main__":
             print(f"\nInput shape: {x.shape}")
             print(f"Output shape: {output.shape}")
 
-            assert output.shape == (batch_size, num_classes), f"Expected output shape (batch_size, num_classes), but got {output.shape}"
+            assert output.shape == (batch_size, num_classes), \
+                f"Expected output shape (batch_size, num_classes), but got {output.shape}"
             print("Output shape is correct.")
 
         except Exception as e:

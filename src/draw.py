@@ -112,8 +112,6 @@ def visualize_classification(model, data, labels, device, config, class_names):
     accuracy = np.mean(classification_map[mask] == labels[mask])
     print(f"Classification accuracy: {accuracy:.4f}")
 
-    return classification_map
-
 
 def load_checkpoint(checkpoint_path, model, device):
     if os.path.isfile(checkpoint_path):
