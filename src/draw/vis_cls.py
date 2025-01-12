@@ -1,27 +1,13 @@
 import os
 from datetime import datetime
 
-from src.Dim.PCA import spectral_pca_reduction
-from src.config import Config
-from matplotlib.patches import Patch
-
 import numpy as np
-import matplotlib.pyplot as plt
 import torch
+from matplotlib import pyplot as plt
 from tqdm import tqdm
 
 from src.datesets.Dataset import create_patches
-from src.datesets.datasets_load import load_dataset
-from src.model_init import create_model
-
-
-def get_project_root():
-    """返回项目根目录的路径"""
-    # 获取当前文件（draw.py）的路径
-    current_path = os.path.abspath(__file__)
-
-    # 获取 src 目录的父目录，即项目根目录
-    return os.path.dirname(os.path.dirname(current_path))
+from matplotlib.patches import Patch
 
 
 def visualize_classification(model, data, labels, device, config, class_names):
@@ -113,31 +99,11 @@ def visualize_classification(model, data, labels, device, config, class_names):
     print(f"Classification accuracy: {accuracy:.4f}")
 
 
-def load_checkpoint(checkpoint_path, model, device):
-    if os.path.isfile(checkpoint_path):
-        checkpoint = torch.load(checkpoint_path, map_location=device)
-        model.load_state_dict(checkpoint['model_state_dict'])
-        print(f"Checkpoint loaded from {checkpoint_path}")
-    else:
-        print(f"No checkpoint found at {checkpoint_path}")
-        return
+def get_project_root():
+    """返回项目根目录的路径"""
+    # 获取当前文件（vis.py）的路径
+    current_path = os.path.abspath(__file__)
 
+    # 获取 src 目录的父目录，即项目根目录
+    return os.path.dirname(os.path.dirname(current_path))
 
-if __name__ == "__main__":
-    # 加载数据集
-    data, labels, dataset_info = load_dataset('Pavia')
-    config = Config()
-    # 创建模型
-    data, _ = spectral_pca_reduction(data, n_components=config.n_components)
-    model = create_model(config.model_name, input_channels=data.shape[-1], num_classes=len(np.unique(labels)))
-
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model.to(device)
-
-    # 加载最佳模型
-    checkpoint_path = config.resume_checkpoint
-
-    load_checkpoint(checkpoint_path, model, device)
-    class_names = dataset_info
-
-    classification_map = visualize_classification(model, data, labels, device, config, class_names)

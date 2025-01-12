@@ -10,14 +10,15 @@ from torch.utils.tensorboard import SummaryWriter
 
 from Train_and_Eval.learing_rate import WarmupCosineSchedule
 from Train_and_Eval.log import setup_logger
-from Train_and_Eval.model import save_model, save_test_results, set_seed, plot_and_save_confusion_matrix
+from Train_and_Eval.model import save_model, save_test_results, set_seed
 from Train_and_Eval.model import train_model, evaluate_model
 from config import Config
 from datesets.Dataset import prepare_data, create_data_loaders
 from model_init import create_model
 from Dim.api import apply_dimension_reduction
 from datesets.datasets_load import load_dataset
-from src.draw import visualize_classification
+from src.vis import visualize_classification
+from src.draw.matrix import plot_and_save_confusion_matrix
 
 
 def main():

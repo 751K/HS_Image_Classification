@@ -9,13 +9,21 @@ from src.MambaBase.SSM import SSM
 
 def get_1d_sincos_pos_embed_from_grid(embed_dim, pos):
     """
-    从网格生成1D正弦余弦位置嵌入
+    从网格生成1D正弦余弦位置嵌入。
 
     Args:
-        embed_dim: 每个位置的输出维度
-        pos: 要编码的位置列表：大小 (M,)
+        embed_dim (int): 每个位置的输出维度。必须是偶数。
+        pos (np.ndarray): 要编码的位置数组，形状为 (M,)，其中 M 是位置的数量。
 
-    输出: (M, D)
+    Returns:
+        np.ndarray: 位置嵌入矩阵，形状为 (M, D)，其中 M 是位置的数量，D 是 embed_dim。
+
+    Raises:
+        AssertionError: 如果 embed_dim 不是偶数。
+
+    Notes:
+        - 该函数使用正弦和余弦函数来生成位置嵌入。
+        - 输出的嵌入矩阵前半部分是正弦值，后半部分是余弦值。
     """
     assert embed_dim % 2 == 0
     omega = np.arange(embed_dim // 2, dtype=np.float32)
