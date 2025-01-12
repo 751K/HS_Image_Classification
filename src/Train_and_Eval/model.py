@@ -27,10 +27,15 @@ def set_seed(seed):
 
 
 def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler, num_epochs, device, writer, logger,
-                save_dir, start_epoch=0):
+                start_epoch=0, config=None):
     best_val_accuracy = 0
     best_model = None
+    patience_counter = 0
+    last_best_epoch = start_epoch
 
+    min_delta = config.min_delta
+    patience = config.patience
+    save_dir = config.save_dir
     for epoch in range(start_epoch, num_epochs):
         model.train()
         running_loss = 0.0
@@ -53,14 +58,14 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
-            if i % 100 == 99:
+            if i % 100 == 49:
                 logger.info('Epoch [%d/%d], Step [%d/%d], Loss: %.4f',
                             epoch + 1, num_epochs, i + 1, len(train_loader), loss.item())
 
         epoch_loss = running_loss / len(train_loader.dataset)
         epoch_acc = correct / total
 
-        val_loss, val_accuracy, _, _ = evaluate_model(model, val_loader, criterion, device, logger)
+        val_loss, val_accuracy, _, _ = evaluate_model(model, val_loader, criterion, device, logger, class_result=False)
 
         writer.add_scalar('Loss/train', epoch_loss, epoch)
         writer.add_scalar('Accuracy/train', epoch_acc, epoch)
@@ -70,12 +75,21 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
         logger.info('Epoch [%d/%d], Train Loss: %.4f, Train Acc: %.4f, Val Loss: %.4f, Val Acc: %.4f',
                     epoch + 1, num_epochs, epoch_loss, epoch_acc, val_loss, val_accuracy)
 
-        if val_accuracy > best_val_accuracy:
+        if val_accuracy > best_val_accuracy + min_delta:
             best_val_accuracy = val_accuracy
             best_model = model.state_dict()
+            last_best_epoch = epoch
+            patience_counter = 0
             logger.info('New best model saved with validation accuracy: %.4f', best_val_accuracy)
+        else:
+            patience_counter += 1
 
-        # 每10个epoch保存一次检查点
+        # 检查是否应该早停
+        if patience_counter >= patience and config.stop_train:
+            logger.info(f'Early stopping triggered. No improvement for {patience} epochs.')
+            break
+
+        # 每20个epoch保存一次检查点
         if (epoch + 1) % 20 == 0:
             checkpoint = {
                 'epoch': epoch + 1,
@@ -89,15 +103,15 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
             torch.save(checkpoint, save_path)
             logger.info(f'Checkpoint saved at epoch {epoch + 1}: {save_path}')
 
+    logger.info(f'Training completed. Best validation accuracy: {best_val_accuracy:.4f} at epoch {last_best_epoch + 1}')
     return best_model
 
 
-def evaluate_model(model, data_loader, criterion, device, logger):
+def evaluate_model(model, data_loader, criterion, device, logger, class_result=False):
     model.eval()
     running_loss = 0.0
     all_preds = []
     all_labels = []
-
     with torch.no_grad():
         for inputs, labels in data_loader:
             inputs = inputs.to(device)
@@ -121,20 +135,20 @@ def evaluate_model(model, data_loader, criterion, device, logger):
     avg_loss = running_loss / len(all_labels)
 
     # 计算每个类别的准确率
-    unique_classes = np.unique(all_labels)
     class_accuracies = {}
-    for class_id in unique_classes:
-        class_mask = all_labels == class_id
-        class_accuracy = accuracy_score(all_labels[class_mask], all_preds[class_mask])
-        class_accuracies[class_id] = class_accuracy
+    if class_result:
+        unique_classes = np.unique(all_labels)
+        logger.info("\n各类别准确率:")
+        for class_id in unique_classes:
+            class_mask = all_labels == class_id
+            class_accuracy = accuracy_score(all_labels[class_mask], all_preds[class_mask])
+            class_accuracies[class_id] = class_accuracy
+            logger.info("类别 %d: 准确率 = %.4f", class_id, class_accuracy)
 
-    # 输出结果
+    # 输出总体结果
     logger.info("平均损失: %.4f, 总体准确率: %.4f", avg_loss, accuracy)
-    logger.info("\n各类别准确率:")
-    for class_id, class_accuracy in class_accuracies.items():
-        logger.info("类别 %d: 准确率 = %.4f", class_id, class_accuracy)
 
-    return avg_loss, accuracy, all_preds, all_labels, class_accuracies
+    return avg_loss, accuracy, all_preds, all_labels
 
 
 def save_model(state_dict, path):

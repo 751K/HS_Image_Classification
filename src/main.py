@@ -1,8 +1,6 @@
 # main.py
 import os
 import sys
-from datetime import datetime
-
 import torch
 import torch.nn as nn
 import numpy as np
@@ -19,6 +17,7 @@ from datesets.Dataset import prepare_data, create_data_loaders
 from model_init import create_model
 from Dim.api import apply_dimension_reduction
 from datesets.datasets_load import load_dataset
+from src.draw import visualize_classification
 
 
 def main():
@@ -30,13 +29,8 @@ def main():
 
         set_seed(config.seed)
 
-        # 创建保存模型和结果的目录
-        timestamp = datetime.now().strftime("%m%d_%H%M%S")
-        save_dir = os.path.join("..", "results", f"{config.model_name}_{timestamp}")
-        os.makedirs(save_dir, exist_ok=True)
-
         # 设置日志记录器
-        logger = setup_logger(save_dir)
+        logger = setup_logger(config.save_dir)
         logger.info("程序开始执行")
 
         logger.info(f"使用模型: {config.model_name}")
@@ -79,7 +73,7 @@ def main():
         logger.info("训练参数设置完成")
 
         # 设置TensorBoard
-        writer = SummaryWriter(log_dir=os.path.join(save_dir, 'tensorboard'))
+        writer = SummaryWriter(log_dir=os.path.join(config.save_dir, 'tensorboard'))
 
         # 检查是否有断点
         start_epoch = 0
@@ -99,27 +93,26 @@ def main():
         # 训练模型
         logger.info("开始训练模型...")
         best_model_state_dict = train_model(model, train_loader, val_loader, criterion, optimizer, scheduler,
-                                            config.num_epochs, device, writer, logger, save_dir, start_epoch)
+                                            config.num_epochs, device, writer, logger, start_epoch, config)
         logger.info("模型训练完成")
         # 保存最佳模型
-        model_save_path = os.path.join(save_dir, "best_model.pth")
+        model_save_path = os.path.join(config.save_dir, "best_model.pth")
         save_model(best_model_state_dict, model_save_path)
         logger.info(f"最佳模型已保存到: {model_save_path}")
 
-        # TODO: 早停策略
         # 评估模型
         if config.test_mode is not True:
             model.load_state_dict(best_model_state_dict)
-        avg_loss, accuracy, all_preds, all_labels, class_accuracies = evaluate_model(model, test_loader, criterion,
-                                                                                     device, logger)
+        avg_loss, accuracy, all_preds, all_labels = evaluate_model(model, test_loader, criterion,
+                                                                   device, logger, class_result=True)
 
         # 保存结果和生成可视化
-        results_save_path = os.path.join(save_dir, "test_results.json")
+        results_save_path = os.path.join(config.save_dir, "test_results.json")
         save_test_results(all_preds, all_labels, accuracy, avg_loss, results_save_path)
 
-        confusion_matrix_save_path = os.path.join(save_dir, "confusion_matrix.png")
+        confusion_matrix_save_path = os.path.join(config.save_dir, "confusion_matrix.png")
         plot_and_save_confusion_matrix(all_labels, all_preds, num_classes, confusion_matrix_save_path)
-
+        classification_map = visualize_classification(model, data, labels, device, config, dataset_info)
         writer.close()
         logger.info("程序执行完毕")
 

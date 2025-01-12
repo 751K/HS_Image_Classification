@@ -1,12 +1,15 @@
 # config.py
+import os
 import sys
+from datetime import datetime
+
 import torch
 from src.model_init import AVAILABLE_MODELS
 
 
 class Config:
     def __init__(self):
-        self.test_mode = True
+        self.test_mode = False
         if self.test_mode:
             self.model_name = 'SSMamba'
             self.num_epochs = 2
@@ -21,10 +24,10 @@ class Config:
         self.warmup_steps = 10
         self.learning_rate = 0.001
         self.seed = 42
-        self.datasets = 'Pavia'  # 可选:'Indian', 'Pavia', 'Salinas'
-        self.patch_size = 3
-        self.resume_checkpoint = '../results/SSMamba_0111_221046/checkpoint_epoch_100.pth'
-        # self.resume_checkpoint = None
+        self.datasets = 'Salinas'  # 可选:'Indian', 'Pavia', 'Salinas'
+        self.patch_size = 5
+        # self.resume_checkpoint = '../results/SSMamba_0111_221046/checkpoint_epoch_100.pth'
+        self.resume_checkpoint = None
 
         # 降维相关配置
         self.perform_dim_reduction = True
@@ -37,6 +40,13 @@ class Config:
         self.mds_n_init = 4
         self.umap_n_neighbors = 15
         self.umap_min_dist = 0.1
+
+        self.stop_train = True
+        self.patience = 10  # 早停的耐心值
+        self.min_delta = 0.001  # 被视为改进的最小变化量
+
+        self.save_dir = os.path.join("..", "results", f"{self.model_name}_{datetime.now().strftime("%m%d_%H%M%S")}")
+        os.makedirs(self.save_dir, exist_ok=True)
 
     @staticmethod
     def select_model():

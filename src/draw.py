@@ -104,6 +104,7 @@ def visualize_classification(model, data, labels, device, config, class_names):
     save_path = os.path.join(pic_dir, filename)
 
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.show()
     plt.close()
 
     # 计算准确率

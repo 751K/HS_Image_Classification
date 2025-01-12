@@ -213,29 +213,6 @@ class BothMamba(nn.Module):
 
 
 class MambaHSI(nn.Module):
-    """
-    Mamba-based 高光谱图像分类模型。
-
-    这个模型使用 Mamba 架构处理高光谱图像数据，支持空间、光谱或两者结合的处理方式。
-
-    Args:
-        input_channels (int, optional): 输入图像的通道数。默认为 128。
-        num_classes (int, optional): 分类类别数。默认为 10。
-        hidden_dim (int, optional): 隐藏层维度。默认为 64。
-        use_residual (bool, optional): 是否使用残差连接。默认为 True。
-        mamba_type (str, optional): Mamba 模块类型，可选 'spa'、'spe' 或 'both'。默认为 'both'。
-        token_num (int, optional): 光谱 Mamba 的令牌数量。默认为 4。
-        group_num (int, optional): 组归一化的组数。默认为 4。
-        use_att (bool, optional): 在 'both' 模式下是否使用注意力机制。默认为 True。
-
-    Attributes:
-        dim (int): 模型维度。
-        mamba_type (str): 使用的 Mamba 类型。
-        patch_embedding (nn.Sequential): 补丁嵌入层。
-        mamba (nn.Sequential): Mamba 模块序列。
-        cls_head (nn.Sequential): 分类头。
-    """
-
     def __init__(self, input_channels=128, num_classes=10, hidden_dim=64, use_residual=True, mamba_type='both',
                  token_num=4, group_num=4, use_att=True):
         super(MambaHSI, self).__init__()
@@ -269,49 +246,49 @@ class MambaHSI(nn.Module):
             nn.SiLU(),
             nn.Conv2d(in_channels=128, out_channels=num_classes, kernel_size=1, stride=1, padding=0))
 
+        # 全局平均池化层
+        self.global_avg_pool = nn.AdaptiveAvgPool2d(1)
+
     def forward(self, x):
-        """
-        模型的前向传播。
-
-        Args:
-            x (torch.Tensor): 输入张量，形状为 (batch_size, input_channels, height, width)。
-
-        Returns:
-            torch.Tensor: 模型输出的 logits，形状为 (batch_size, num_classes, height, width)。
-        """
         x = self.patch_embedding(x)
         x = self.mamba(x)
-        logits = self.cls_head(x)
-        return logits
-
+        x = self.cls_head(x)
+        x = self.global_avg_pool(x)
+        return x.view(x.size(0), -1)  # 将输出展平为 (batch, num_classes)
 
 # 测试代码
 if __name__ == "__main__":
     torch.manual_seed(42)
 
+    # 测试不同的输入尺寸
+    input_sizes = [(3, 3), (5, 5), (7, 7)]
     batch_size = 4
     in_channels = 128
-    height = 5
-    width = 5
-    x = torch.randn(batch_size, in_channels, height, width)
+    num_classes = 10
 
-    model = MambaHSI(input_channels=in_channels, hidden_dim=64, num_classes=10, mamba_type='both')
+    model = MambaHSI(input_channels=in_channels, hidden_dim=64, num_classes=num_classes, mamba_type='both')
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
     model = model.to(device)
-    x = x.to(device)
 
-    try:
-        with torch.no_grad():
-            output = model(x)
+    for height, width in input_sizes:
+        x = torch.randn(batch_size, in_channels, height, width)
+        x = x.to(device)
 
-        print(f"Input shape: {x.shape}")
-        print(f"Output shape: {output.shape}")
+        try:
+            with torch.no_grad():
+                output = model(x)
 
-        total_params = sum(p.numel() for p in model.parameters())
-        print(f"Total parameters: {total_params}")
+            print(f"\nInput shape: {x.shape}")
+            print(f"Output shape: {output.shape}")
 
-    except Exception as e:
-        print(f"An error occurred: {e}")
+            assert output.shape == (batch_size, num_classes), f"Expected output shape (batch_size, num_classes), but got {output.shape}"
+            print("Output shape is correct.")
+
+        except Exception as e:
+            print(f"An error occurred: {e}")
+
+    total_params = sum(p.numel() for p in model.parameters())
+    print(f"\nTotal parameters: {total_params}")
