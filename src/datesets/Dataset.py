@@ -101,7 +101,6 @@ def create_spectral_patches(data, labels, patch_size, stride):
 def prepare_data(data, labels, test_size=0.65, val_size=0.05, random_state=42, dim=1, patch_size=5):
     if dim not in [1, 2, 3]:
         raise ValueError("Dim must be 1, 2, or 3")
-    # TODO : fix dim =1 时的问题
 
     if dim == 1:
         rows, cols, bands, = data.shape
