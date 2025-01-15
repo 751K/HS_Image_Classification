@@ -4,19 +4,19 @@ import sys
 import torch
 import torch.nn as nn
 import numpy as np
-
 import torch.optim as optim
-from torch.utils.tensorboard import SummaryWriter
 
+from torch.utils.tensorboard import SummaryWriter
 from Train_and_Eval.learing_rate import WarmupCosineSchedule
 from Train_and_Eval.log import setup_logger
 from Train_and_Eval.model import save_model, save_test_results, set_seed
-from Train_and_Eval.model import train_model, evaluate_model
 from config import Config
 from datesets.Dataset import prepare_data, create_data_loaders
 from model_init import create_model
 from Dim.api import apply_dimension_reduction
 from datesets.datasets_load import load_dataset
+from src.Train_and_Eval.eval import evaluate_model
+from src.Train_and_Eval.train import train_model
 from src.vis import visualize_classification
 from src.draw.matrix import plot_and_save_confusion_matrix
 
@@ -108,7 +108,8 @@ def main():
 
         confusion_matrix_save_path = os.path.join(config.save_dir, "confusion_matrix.png")
         plot_and_save_confusion_matrix(all_labels, all_preds, num_classes, confusion_matrix_save_path)
-        visualize_classification(model, data, labels, device, config, dataset_info)
+        visualize_save_path = os.path.join(config.save_dir, "visualization.png")
+        visualize_classification(model, data, labels, device, config, dataset_info, save_path=visualize_save_path)
         writer.close()
         logger.info("程序执行完毕")
 

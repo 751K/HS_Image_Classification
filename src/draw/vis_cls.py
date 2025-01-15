@@ -6,11 +6,11 @@ import torch
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 
-from src.datesets.Dataset import create_patches
+from src.datesets.Dataset import create_patches, create_spectral_samples
 from matplotlib.patches import Patch
 
 
-def visualize_classification(model, data, labels, device, config, class_names):
+def visualize_classification(model, data, labels, device, config, class_names, save_path=None):
     """
     对原始数据进行逐像素分类并生成可视化图。
 
@@ -28,15 +28,23 @@ def visualize_classification(model, data, labels, device, config, class_names):
     model.eval()
     height, width, channels = data.shape
 
-    # 创建patches
-    patches, _ = create_patches(data, labels, patch_size=config.patch_size)
+    if model.dim == 1:
+        data_transposed = np.transpose(data, (2, 0, 1))  # 转置为 (bands, rows, cols)
+        samples, _ = create_spectral_samples(data_transposed, labels, config.sequence_length)
+        X = samples.transpose(2, 0, 1)  # 调整为 (num_samples, bands, sequence_length)
+    else:  # dim == 2 or dim == 3
+        patches, _ = create_patches(data, labels, config.patch_size)
+        if model.dim == 2:
+            X = patches.reshape(patches.shape[0], patches.shape[1], config.patch_size, config.patch_size)
+        else:  # dim == 3
+            X = patches.reshape(patches.shape[0], 1, patches.shape[1], config.patch_size, config.patch_size)
 
     # 逐批次进行预测
     batch_size = config.batch_size
     predictions = []
     with torch.no_grad():
-        for i in tqdm(range(0, len(patches), batch_size), desc="Classifying pixels"):
-            batch = torch.FloatTensor(patches[i:i + batch_size]).to(device)
+        for i in tqdm(range(0, len(X), batch_size), desc="Classifying pixels"):
+            batch = torch.FloatTensor(X[i:i + batch_size]).to(device)
             outputs = model(batch)
             _, preds = torch.max(outputs, 1)
             predictions.extend(preds.cpu().numpy())
@@ -79,17 +87,19 @@ def visualize_classification(model, data, labels, device, config, class_names):
     fig.legend(handles=legend_elements, loc='center left', bbox_to_anchor=(1, 0.5))
 
     plt.tight_layout()
+    if save_path is not None:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    else:
+        # 获取项目根目录并保存图像
+        root_dir = get_project_root()
+        pic_dir = os.path.join(root_dir, "Pic")
+        os.makedirs(pic_dir, exist_ok=True)
 
-    # 获取项目根目录并保存图像
-    root_dir = get_project_root()
-    pic_dir = os.path.join(root_dir, "Pic")
-    os.makedirs(pic_dir, exist_ok=True)
+        timestamp = datetime.now().strftime("%m%d_%H%M%S")
+        filename = f"classification_visualization_{timestamp}.png"
+        save_path = os.path.join(pic_dir, filename)
 
-    timestamp = datetime.now().strftime("%m%d_%H%M%S")
-    filename = f"classification_visualization_{timestamp}.png"
-    save_path = os.path.join(pic_dir, filename)
-
-    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.show()
     plt.close()
 
@@ -105,5 +115,8 @@ def get_project_root():
     current_path = os.path.abspath(__file__)
 
     # 获取 src 目录的父目录，即项目根目录
-    return os.path.dirname(os.path.dirname(current_path))
+    return os.path.dirname(os.path.dirname(os.path.dirname(current_path)))
 
+
+if __name__ == "__main__":
+    print(get_project_root())

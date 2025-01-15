@@ -6,7 +6,18 @@ from torch.nn import init
 
 
 class LeeEtAl3D(nn.Module):
+    """
+    LeeEtAl3D 模型实现。
+    """
+
     def __init__(self, input_channels: int, num_classes: int):
+        """
+        初始化 LeeEtAl3D 模型。
+
+        Args:
+            input_channels (int): 输入通道数。
+            num_classes (int): 类别数量。
+        """
         super(LeeEtAl3D, self).__init__()
         self.name: str = 'LeeEtAl'
 
@@ -22,36 +33,59 @@ class LeeEtAl3D(nn.Module):
         self.apply(self._weight_init)
 
     def forward(self, x: Tensor) -> Tensor:
-        # Inception forward
+        """
+        模型的前向传播。
+
+        Args:
+            x (Tensor): 输入张量，形状为 (batch_size, 1, input_channels, height, width)。
+
+        Returns:
+            Tensor: 输出张量，形状为 (batch_size, num_classes)。
+        """
         x_3x3 = self.inception['conv_3x3'](x)
         x_1x1 = self.inception['conv_1x1'](x)
         x = torch.cat([x_3x3, x_1x1], dim=1)
-        x = x.squeeze(2)  # 移除 in_channels 维度
+        x = x.squeeze(2)
         x = F.relu(self.lrn1(x))
 
-        # Residual blocks forward
         x = self.residual_blocks[0](x)
         x = F.relu(self.lrn2(x))
         for block in self.residual_blocks[1:]:
             x = F.relu(x + block(x))
 
-        # Classifier forward
         for i, layer in enumerate(self.classifier):
             x = layer(x)
             if i < len(self.classifier) - 1:
                 x = F.relu(x)
                 x = self.dropout(x)
 
+        x = F.adaptive_avg_pool2d(x, 1).squeeze(-1).squeeze(-1)
+
         return x
 
     @staticmethod
     def _create_inception_module(in_channels: int) -> nn.ModuleDict:
+        """
+        创建 inception 模块。
+
+        Args:
+            in_channels (int): 输入通道数。
+
+        Returns:
+            nn.ModuleDict: 包含 inception 模块的字典。
+        """
         return nn.ModuleDict({
             'conv_3x3': nn.Conv3d(1, 128, (in_channels, 3, 3), stride=(in_channels, 1, 1), padding=(0, 1, 1)),
             'conv_1x1': nn.Conv3d(1, 128, (in_channels, 1, 1), stride=(in_channels, 1, 1), padding=0)
         })
 
     def _create_residual_blocks(self) -> nn.ModuleList:
+        """
+        创建残差块。
+
+        Returns:
+            nn.ModuleList: 包含残差块的列表。
+        """
         return nn.ModuleList([
             self._create_residual_block(256, 128),
             self._create_residual_block(128, 128)
@@ -59,6 +93,16 @@ class LeeEtAl3D(nn.Module):
 
     @staticmethod
     def _create_residual_block(in_channels: int, out_channels: int) -> nn.Sequential:
+        """
+        创建单个残差块。
+
+        Args:
+            in_channels (int): 输入通道数。
+            out_channels (int): 输出通道数。
+
+        Returns:
+            nn.Sequential: 残差块。
+        """
         return nn.Sequential(
             nn.Conv2d(in_channels, out_channels, (1, 1)),
             nn.ReLU(),
@@ -67,6 +111,15 @@ class LeeEtAl3D(nn.Module):
 
     @staticmethod
     def _create_classifier(n_classes: int) -> nn.Sequential:
+        """
+        创建分类器。
+
+        Args:
+            n_classes (int): 类别数量。
+
+        Returns:
+            nn.Sequential: 分类器。
+        """
         return nn.Sequential(
             nn.Conv2d(128, 128, (1, 1)),
             nn.ReLU(),
@@ -77,27 +130,38 @@ class LeeEtAl3D(nn.Module):
 
     @staticmethod
     def _weight_init(m: nn.Module) -> None:
+        """
+        初始化模型权重。
+
+        Args:
+            m (nn.Module): 要初始化的模块。
+        """
         if isinstance(m, (nn.Linear, nn.Conv3d, nn.Conv2d)):
             init.kaiming_uniform_(m.weight)
-            init.zeros_(m.bias)
+            if m.bias is not None:
+                init.zeros_(m.bias)
 
     def __str__(self) -> str:
+        """
+        返回模型的字符串表示。
+
+        Returns:
+            str: 模型的字符串表示。
+        """
         return (f"LeeEtAl(in_channels={self.inception['conv_3x3'].kernel_size[0]}, "
                 f"n_classes={self.classifier[-1].out_channels})")
 
 
 if __name__ == '__main__':
-    # 测试代码
     batch_size, in_channels = 16, 200
-    input_data = torch.randn(batch_size, 1, in_channels, 5, 5)
-
-    # 创建模型实例
+    input_sizes = [(3, 3), (5, 5), (7, 7)]
     n_classes = 16
     model = LeeEtAl3D(in_channels, n_classes)
 
-    # 前向传播
-    output = model(input_data)
+    for size in input_sizes:
+        input_data = torch.randn(batch_size, 1, in_channels, *size)
+        output = model(input_data)
+        print(f"Input shape: {input_data.shape}")
+        print(f"Output shape: {output.shape}")
 
-    print(f"Input shape: {input_data.shape}")
-    print(f"Output shape: {output.shape}")
     print(f"Model structure: {model}")

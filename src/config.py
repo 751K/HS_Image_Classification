@@ -9,9 +9,10 @@ from src.model_init import AVAILABLE_MODELS
 
 class Config:
     def __init__(self):
-        self.test_mode = False
+        self.sequence_length = 25
+        self.test_mode = True
         if self.test_mode:
-            self.model_name = 'SSMamba'
+            self.model_name = 'LeeEtAl3D'
             self.num_epochs = 2
             torch.autograd.set_detect_anomaly = True
         else:
@@ -19,14 +20,14 @@ class Config:
             self.num_epochs = 100
             torch.backends.cudnn.benchmark = True
 
-        self.batch_size = 64
+        self.batch_size = 128
         self.num_workers = 0
         self.warmup_steps = 10
         self.learning_rate = 0.001
         self.seed = 42
         self.datasets = 'Salinas'  # 可选:'Indian', 'Pavia', 'Salinas'
         self.patch_size = 5
-        # self.resume_checkpoint = '../results/SSMamba_0111_221046/checkpoint_epoch_100.pth'
+        # self.resume_checkpoint = '../results/LeeEtAl3D_0112_134402/checkpoint_epoch_40.pth'
         self.resume_checkpoint = None
 
         # 降维相关配置
@@ -45,7 +46,8 @@ class Config:
         self.patience = 10  # 早停的耐心值
         self.min_delta = 0.001  # 被视为改进的最小变化量
 
-        self.save_dir = os.path.join("..", "results", f"{self.model_name}_{datetime.now().strftime("%m%d_%H%M%S")}")
+        self.save_dir = os.path.join("..", "results",
+                                     f"{self.datasets}_{self.model_name}_{datetime.now().strftime('%m%d_%H%M')}")
         os.makedirs(self.save_dir, exist_ok=True)
 
     @staticmethod
