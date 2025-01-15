@@ -75,7 +75,7 @@ if __name__ == '__main__':
     # 准备数据
     X_train, y_train, X_val, y_val, X_test, y_test = prepare_data(
         data, labels, test_size=0.65, val_size=0.05, random_state=42,
-        dim=3, patch_size=5, sequence_length=25
+        dim=3, patch_size=5
     )
 
     # 创建和训练模型

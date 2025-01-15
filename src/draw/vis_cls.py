@@ -27,11 +27,14 @@ def visualize_classification(model, data, labels, device, config, class_names, s
     """
     model.eval()
     height, width, channels = data.shape
-
+    # data:Original data shape: (512, 217, 80)
     if model.dim == 1:
-        data_transposed = np.transpose(data, (2, 0, 1))  # 转置为 (bands, rows, cols)
-        samples, _ = create_spectral_samples(data_transposed, labels, config.sequence_length)
-        X = samples.transpose(2, 0, 1)  # 调整为 (num_samples, bands, sequence_length)
+        rows, cols, bands, = data.shape
+        y = labels.flatten()
+        valid_pixels = y != 0
+        X = data.reshape(-1, bands)
+        X = X[valid_pixels]
+
     else:  # dim == 2 or dim == 3
         patches, _ = create_patches(data, labels, config.patch_size)
         if model.dim == 2:

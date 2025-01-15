@@ -17,10 +17,7 @@ class HSIDataset(Dataset):
         return self.data.shape[-1] if self.dim == 1 else len(self.data)
 
     def __getitem__(self, idx):
-        if self.dim == 1:
-            return self.data[:, :, idx], self.labels[idx]
-        else:
-            return self.data[idx], self.labels[idx]
+        return self.data[idx], self.labels[idx]
 
 
 def create_patches(data, labels, patch_size=5):
@@ -36,7 +33,7 @@ def create_patches(data, labels, patch_size=5):
     patches = patches.reshape(rows * cols, patch_size, patch_size, bands)
 
     # 确保 patch_labels 的形状与 patches 的第一个维度一致
-    patch_labels = padded_labels[pad_width:pad_width+rows, pad_width:pad_width+cols].flatten()
+    patch_labels = padded_labels[pad_width:pad_width + rows, pad_width:pad_width + cols].flatten()
 
     # 找到有效的（非零）标签索引
     valid_indices = np.where(patch_labels != 0)[0]
@@ -75,17 +72,52 @@ def create_spectral_samples(data, labels, sequence_length=25):
     return samples, sample_labels
 
 
-def prepare_data(data, labels, test_size=0.65, val_size=0.05, random_state=42, dim=1, patch_size=5, sequence_length=25):
+def create_spectral_patches(data, labels, patch_size, stride):
+    bands, rows, cols = data.shape
+
+    # 计算可以创建的patch数量
+    num_patches = (bands - patch_size) // stride + 1
+
+    # 初始化patch数组
+    patches = np.zeros((rows * cols * num_patches, patch_size))
+    patch_labels = np.zeros(rows * cols * num_patches, dtype=int)
+
+    index = 0
+    for i in range(rows):
+        for j in range(cols):
+            if labels[i, j] != 0:  # 只处理非背景像素
+                for k in range(0, bands - patch_size + 1, stride):
+                    patches[index] = data[k:k + patch_size, i, j]
+                    patch_labels[index] = labels[i, j] - 1  # 将类别标签从1-based改为0-based
+                    index += 1
+
+    # 裁剪数组到实际使用的大小
+    patches = patches[:index]
+    patch_labels = patch_labels[:index]
+
+    return patches, patch_labels
+
+
+def prepare_data(data, labels, test_size=0.65, val_size=0.05, random_state=42, dim=1, patch_size=5):
     if dim not in [1, 2, 3]:
         raise ValueError("Dim must be 1, 2, or 3")
+    # TODO : fix dim =1 时的问题
 
     if dim == 1:
-        data = np.transpose(data, (2, 0, 1))  # 转置为 (bands, rows, cols)
-        samples, sample_labels = create_spectral_samples(data, labels, sequence_length)
-        num_samples = samples.shape[2]
-        X = samples.transpose(2, 0, 1)  # 调整为 (num_samples, bands, sequence_length)
-        y = sample_labels
+        rows, cols, bands, = data.shape
+
+        y = labels.flatten()
+        valid_pixels = y != 0
+
+        # 重塑数据为 (pixels, bands)
+        X = data.reshape(-1, bands)
+
+        # 使用相同的索引选择有效像素
+        X = X[valid_pixels]
+        y = y[valid_pixels]
+
     else:  # dim == 2 or dim == 3
+        # patch: (num_patches, bands, patch_size, patch_size)
         patches, patch_labels = create_patches(data, labels, patch_size)
         if dim == 2:
             X = patches.reshape(patches.shape[0], patches.shape[1], patch_size, patch_size)

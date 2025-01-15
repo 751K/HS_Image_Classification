@@ -10,9 +10,9 @@ from src.model_init import AVAILABLE_MODELS
 class Config:
     def __init__(self):
         self.sequence_length = 25
-        self.test_mode = True
+        self.test_mode = False
         if self.test_mode:
-            self.model_name = 'LeeEtAl3D'
+            self.model_name = 'ResNet1D'
             self.num_epochs = 2
             torch.autograd.set_detect_anomaly = True
         else:
