@@ -4,14 +4,14 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 from skimage.util import view_as_windows
-from sklearn.model_selection import train_test_split, StratifiedShuffleSplit
+from sklearn.model_selection import StratifiedShuffleSplit
 
 
 class HSIDataset(Dataset):
-    def __init__(self, data, labels, dim=1):
+    def __init__(self, input_data, input_labels, dim=1):
         self.dim = dim
-        self.data = torch.as_tensor(data, dtype=torch.float32).contiguous()
-        self.labels = torch.tensor(labels, dtype=torch.long)
+        self.data = torch.as_tensor(input_data, dtype=torch.float32).contiguous()
+        self.labels = torch.tensor(input_labels, dtype=torch.long)
 
     def __len__(self):
         return self.data.shape[-1] if self.dim == 1 else len(self.data)
@@ -108,10 +108,8 @@ def prepare_data(data, labels, test_size=0.65, val_size=0.05, random_state=42, d
         y = labels.flatten()
         valid_pixels = y != 0
 
-        # 重塑数据为 (pixels, bands)
         X = data.reshape(-1, bands)
 
-        # 使用相同的索引选择有效像素
         X = X[valid_pixels]
         y = y[valid_pixels]
 
@@ -124,34 +122,32 @@ def prepare_data(data, labels, test_size=0.65, val_size=0.05, random_state=42, d
             X = patches.reshape(patches.shape[0], 1, patches.shape[1], patch_size, patch_size)
         y = patch_labels
 
-    X_train, y_train, X_val, y_val, X_test, y_test = optimized_split(X, y, test_size=0.65, val_size=0.05,
-                                                                     random_state=42)
+    train_data, train_label, val_data, val_label, test_data, test_label = optimized_split(X, y, test_size=test_size, val_size=val_size,
+                                                                                          random_state=random_state)
 
-    return X_train, y_train, X_val, y_val, X_test, y_test
+    return train_data, train_label, val_data, val_label, test_data, test_label
 
 
-def optimized_split(X, y, test_size=0.65, val_size=0.05, random_state=42):
-    # 计算训练集大小
+def optimized_split(data, labels, test_size=0.65, val_size=0.05, random_state=42):
     train_size = 1 - test_size - val_size
+    train_data, temp_data, train_labels, temp_labels = None, None, None, None
+    val_data, val_labels, test_data, test_labels = None, None, None, None
 
-    # 使用 StratifiedShuffleSplit 一次性分割数据
     sss = StratifiedShuffleSplit(n_splits=1, test_size=1 - train_size, random_state=random_state)
 
-    for train_index, temp_index in sss.split(X, y):
-        X_train, X_temp = X[train_index], X[temp_index]
-        y_train, y_temp = y[train_index], y[temp_index]
+    for train_indices, temp_indices in sss.split(data, labels):
+        train_data, temp_data = data[train_indices], data[temp_indices]
+        train_labels, temp_labels = labels[train_indices], labels[temp_indices]
 
-    # 计算验证集在剩余数据中的比例
     val_ratio = val_size / (test_size + val_size)
 
-    # 再次使用 StratifiedShuffleSplit 分割验证集和测试集
     sss_val = StratifiedShuffleSplit(n_splits=1, test_size=1 - val_ratio, random_state=random_state)
 
-    for val_index, test_index in sss_val.split(X_temp, y_temp):
-        X_val, X_test = X_temp[val_index], X_temp[test_index]
-        y_val, y_test = y_temp[val_index], y_temp[test_index]
+    for val_indices, test_indices in sss_val.split(temp_data, temp_labels):
+        val_data, test_data = temp_data[val_indices], temp_data[test_indices]
+        val_labels, test_labels = temp_labels[val_indices], temp_labels[test_indices]
 
-    return X_train, y_train, X_val, y_val, X_test, y_test
+    return train_data, train_labels, val_data, val_labels, test_data, test_labels
 
 
 def create_data_loaders(X_train, y_train, X_val, y_val, X_test, y_test, batch_size, num_workers, dim=1, logger=None):
@@ -159,20 +155,17 @@ def create_data_loaders(X_train, y_train, X_val, y_val, X_test, y_test, batch_si
     val_dataset = HSIDataset(X_val, y_val, dim)
     test_dataset = HSIDataset(X_test, y_test, dim)
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-
-    for inputs, labels in train_loader:
-        break  # 只打印第一个batch
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
     try:
-        inputs, labels = next(iter(train_loader))
+        inputs, input_labels = next(iter(train_dataloader))
         logger.info(f"Inputs shape: {inputs.shape}")
-        logger.info(f"Labels shape: {labels.shape}")
+        logger.info(f"Labels shape: {input_labels.shape}")
     except Exception as e:
         logger.error(f"An error occurred while checking the data loaders: {e}")
-    return train_loader, val_loader, test_loader
+    return train_dataloader, val_dataloader, test_dataloader
 
 
 # 使用示例
@@ -181,8 +174,7 @@ if __name__ == "__main__":
     data = np.random.rand(145, 145, 200)  # 示例数据
     labels = np.random.randint(0, 10, (145, 145))  # 示例标签
 
-    sequence_length = 25  # 设置 sequence_length
-    X_train, y_train, X_val, y_val, X_test, y_test = prepare_data(data, labels, dim=1, sequence_length=sequence_length)
+    X_train, y_train, X_val, y_val, X_test, y_test = prepare_data(data, labels, dim=1)
 
     print(f"X_train shape: {X_train.shape}")
     print(f"y_train shape: {y_train.shape}")
