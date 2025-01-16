@@ -24,7 +24,10 @@ def get_model_class(model_name):
         'VisionTransformer': 'src.TransformerBase.VisionTransformer',
         'SSMamba': 'src.MambaBase.SSMamba',
         'MambaHSI': 'src.MambaBase.MambaHSI',
-        'LeeEtAl3D': 'src.CNNBase.LeeEtAl3D'
+        'LeeEtAl3D': 'src.CNNBase.LeeEtAl3D',
+        'MSAFMamba': 'src.MambaBase.MSAFMamba',
+        'SSFTT': 'src.TransformerBase.SSFTT',
+        'GCN2D': 'src.CNNBase.GCN2D'
     }
 
     # 根据模型名称动态导入相应的类
@@ -42,29 +45,30 @@ def visualize_all_models(data, labels, device, config, label_names):
     model_dirs = glob(os.path.join(results_dir, f"{config.datasets}_*"))
 
     n_models = len(model_dirs)
-    n_cols = 3  # 地面实况 + 每行2个模型
-    n_rows = (n_models + 1) // 2  # +1 为地面实况，然后除以2并向上取整
+    n_cols = 3
+    n_rows = ((n_models - 1) + 2) // 2  # +2 为第一行的两个大图
 
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(n_cols * 6, n_rows * 5))
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(n_cols * 8, n_rows * 6))
 
     # 确保axes始终是2D的
     if n_rows == 1:
         axes = axes.reshape(1, -1)
 
-    # 绘制地面实况
-    axes[0, 0].imshow(labels, cmap='jet')
-    axes[0, 0].set_title('Ground Truth')
-    axes[0, 0].axis('off')
-
     unique_labels = np.unique(labels)
     num_classes = len(unique_labels)
     colors = plt.cm.jet(np.linspace(0, 1, num_classes))
 
-    # 为模型推理添加进度条
-    for idx, model_dir in enumerate(tqdm(model_dirs, desc="处理模型")):
-        row = idx // 2
-        col = (idx % 2) + 1  # +1 因为地面实况在第一列
+    # 绘制放大的Ground Truth
+    ax_gt = plt.subplot2grid((n_rows, n_cols), (0, 0), colspan=2)
+    ax_gt.imshow(labels, cmap='jet')
+    ax_gt.set_title('Ground Truth', fontsize=16)
+    ax_gt.axis('off')
 
+    # 处理每个模型
+    msafmamba_result = None
+    other_models = []
+
+    for model_dir in model_dirs:
         model_path = os.path.join(model_dir, "best_model.pth")
         state_dict = torch.load(model_path, map_location=device)
 
@@ -76,10 +80,33 @@ def visualize_all_models(data, labels, device, config, label_names):
         model.to(device)
         model.eval()
 
+        print(f"Processing model: {os.path.basename(model_dir)}")
         classification_map = inference(model, data, labels, device, config)
 
+        if 'MSAFMamba' in model_name:
+            msafmamba_result = (model_name, classification_map)
+        else:
+            other_models.append((model_name, classification_map))
+
+    # 绘制放大的MSAFMamba结果
+    if msafmamba_result:
+        ax_msaf = plt.subplot2grid((n_rows, n_cols), (0, 2), colspan=1)
+        ax_msaf.imshow(msafmamba_result[1], cmap='jet')
+        ax_msaf.set_title(f'Model: {msafmamba_result[0]}', fontsize=16)
+        ax_msaf.axis('off')
+
+        mask = labels != 0
+        accuracy = np.mean(msafmamba_result[1][mask] == labels[mask])
+        ax_msaf.text(0.5, -0.1, f"Accuracy: {accuracy:.4f}", ha='center', va='center',
+                     transform=ax_msaf.transAxes, fontsize=12)
+
+    # 绘制其他模型结果
+    for idx, (model_name, classification_map) in enumerate(other_models):
+        row = (idx + 2) // n_cols
+        col = (idx + 2) % n_cols
+
         axes[row, col].imshow(classification_map, cmap='jet')
-        axes[row, col].set_title(f'Model: {os.path.basename(model_dir)}')
+        axes[row, col].set_title(f'Model: {model_name}')
         axes[row, col].axis('off')
 
         mask = labels != 0
@@ -88,11 +115,9 @@ def visualize_all_models(data, labels, device, config, label_names):
                             transform=axes[row, col].transAxes)
 
     # 移除空白子图
-    for row in range(n_rows):
+    for row in range(1, n_rows):
         for col in range(n_cols):
-            if col == 0 and row > 0:  # 移除第一列多余的图（地面实况之后）
-                fig.delaxes(axes[row, col])
-            elif row == n_rows - 1 and col > (n_models % 2):  # 移除最后一行多余的图
+            if row * n_cols + col >= n_models + 1:
                 fig.delaxes(axes[row, col])
 
     # 创建图例

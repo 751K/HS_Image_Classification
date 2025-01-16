@@ -10,9 +10,6 @@ from src.datesets.datasets_load import load_dataset
 from src.draw.vis_cls import visualize_classification
 from src.model_init import create_model
 
-
-
-
 if __name__ == "__main__":
     # 加载数据集
     data, labels, dataset_info = load_dataset('Pavia')

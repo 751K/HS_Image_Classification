@@ -1,4 +1,5 @@
 # config.py
+import inspect
 import os
 import sys
 from datetime import datetime
@@ -9,16 +10,20 @@ from src.model_init import AVAILABLE_MODELS
 
 class Config:
     def __init__(self):
-        self.sequence_length = 25
         self.test_mode = False
-        if self.test_mode:
-            self.model_name = 'ResNet1D'
-            self.num_epochs = 2
-            torch.autograd.set_detect_anomaly = True
-        else:
+
+        # 获取调用此类的文件名
+        caller_frame = inspect.stack()[1]
+        caller_filename = os.path.basename(caller_frame.filename)
+
+        if caller_filename == 'main.py' and self.test_mode is not True:
             self.model_name = self.select_model()
             self.num_epochs = 100
             torch.backends.cudnn.benchmark = True
+        else:
+            self.model_name = 'ResNet1D'
+            self.num_epochs = 2
+            torch.autograd.set_detect_anomaly = True
 
         self.batch_size = 128
         self.num_workers = 0
