@@ -46,6 +46,25 @@ def load_dataset(dataset_name,logger=None):
                             'Soil_vinyard_develop', 'Corn_senesced_green_weeds', 'Lettuce_romaine_4wk',
                             'Lettuce_romaine_5wk', 'Lettuce_romaine_6wk', 'Lettuce_romaine_7wk',
                             'Vinyard_untrained', 'Vinyard_vertical_trellis']
+        },
+        'KSC': {
+            'data_file': 'KSC.mat',
+            'label_file': 'KSC_gt.mat',
+            'data_key': 'KSC',
+            'label_key': 'KSC_gt',
+            'label_names': ['Undefined', 'Scrub', 'Willow swamp', 'CP hammock', 'CP/Oak', 'Slash pine',
+                            'Oak/Broadleaf', 'Hardwood swamp', 'Graminoid marsh', 'Spartina marsh',
+                            'Cattail marsh', 'Salt marsh', 'Mud flats', 'Water']
+        },
+        'Botswana': {
+            'data_file': 'Botswana.mat',
+            'label_file': 'Botswana_gt.mat',
+            'data_key': 'Botswana',
+            'label_key': 'Botswana_gt',
+            'label_names': ['Undefined', 'Water', 'Hippo grass', 'Floodplain grasses 1', 'Floodplain grasses 2',
+                            'Reeds', 'Riparian', 'Firescar', 'Island interior', 'Acacia woodlands',
+                            'Acacia shrublands', 'Acacia grasslands', 'Short mopane', 'Mixed mopane',
+                            'Exposed soils']
         }
     }
 
@@ -88,7 +107,7 @@ def load_dataset(dataset_name,logger=None):
 
 # 使用示例
 if __name__ == "__main__":
-    dataset_names = ['Indian', 'Pavia', 'Salinas']
+    dataset_names = ['Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana']
 
     for dataset_name in dataset_names:
         print(f"\n加载 {dataset_name} 数据集:")

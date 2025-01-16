@@ -30,7 +30,7 @@ class Config:
         self.warmup_steps = 10
         self.learning_rate = 0.001
         self.seed = 42
-        self.datasets = 'Pavia'  # 可选:'Indian', 'Pavia', 'Salinas'
+        self.datasets = 'Botswana'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana'
         self.patch_size = 5
         # self.resume_checkpoint = '../results/LeeEtAl3D_0112_134402/checkpoint_epoch_40.pth'
         self.resume_checkpoint = None
