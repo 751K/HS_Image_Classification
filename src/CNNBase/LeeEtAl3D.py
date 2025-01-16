@@ -64,19 +64,19 @@ class LeeEtAl3D(nn.Module):
         return x
 
     @staticmethod
-    def _create_inception_module(in_channels: int) -> nn.ModuleDict:
+    def _create_inception_module(input_channels: int) -> nn.ModuleDict:
         """
         创建 inception 模块。
 
         Args:
-            in_channels (int): 输入通道数。
+            input_channels (int): 输入通道数。
 
         Returns:
             nn.ModuleDict: 包含 inception 模块的字典。
         """
         return nn.ModuleDict({
-            'conv_3x3': nn.Conv3d(1, 128, (in_channels, 3, 3), stride=(in_channels, 1, 1), padding=(0, 1, 1)),
-            'conv_1x1': nn.Conv3d(1, 128, (in_channels, 1, 1), stride=(in_channels, 1, 1), padding=0)
+            'conv_3x3': nn.Conv3d(1, 128, (input_channels, 3, 3), stride=(input_channels, 1, 1), padding=(0, 1, 1)),
+            'conv_1x1': nn.Conv3d(1, 128, (input_channels, 1, 1), stride=(input_channels, 1, 1), padding=0)
         })
 
     def _create_residual_blocks(self) -> nn.ModuleList:
@@ -92,30 +92,30 @@ class LeeEtAl3D(nn.Module):
         ])
 
     @staticmethod
-    def _create_residual_block(in_channels: int, out_channels: int) -> nn.Sequential:
+    def _create_residual_block(input_channels: int, out_channels: int) -> nn.Sequential:
         """
         创建单个残差块。
 
         Args:
-            in_channels (int): 输入通道数。
+            input_channels (int): 输入通道数。
             out_channels (int): 输出通道数。
 
         Returns:
             nn.Sequential: 残差块。
         """
         return nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, (1, 1)),
+            nn.Conv2d(input_channels, out_channels, (1, 1)),
             nn.ReLU(),
             nn.Conv2d(out_channels, out_channels, (1, 1))
         )
 
     @staticmethod
-    def _create_classifier(n_classes: int) -> nn.Sequential:
+    def _create_classifier(num_classes: int) -> nn.Sequential:
         """
         创建分类器。
 
         Args:
-            n_classes (int): 类别数量。
+            num_classes (int): 类别数量。
 
         Returns:
             nn.Sequential: 分类器。
@@ -125,7 +125,7 @@ class LeeEtAl3D(nn.Module):
             nn.ReLU(),
             nn.Conv2d(128, 128, (1, 1)),
             nn.ReLU(),
-            nn.Conv2d(128, n_classes, (1, 1))
+            nn.Conv2d(128, num_classes, (1, 1))
         )
 
     @staticmethod

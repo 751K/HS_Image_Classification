@@ -67,8 +67,10 @@ def main():
         logger.info("Dataloader创建完成")
 
         # 设置训练参数
+        # criterion = nn.CrossEntropyLoss(label_smoothing=config.label_smoothing)
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)
+
         total_steps = config.num_epochs * len(train_loader)
         scheduler = WarmupCosineSchedule(optimizer, config.warmup_steps, total_steps)
         logger.info("训练参数设置完成")

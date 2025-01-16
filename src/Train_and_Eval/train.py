@@ -1,12 +1,30 @@
 import os
-
 import torch
-
 from src.Train_and_Eval.eval import evaluate_model
 
 
 def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler, num_epochs, device, writer, logger,
                 start_epoch=0, config=None):
+    """
+    训练模型并在验证集上评估。
+
+    Args:
+        model (torch.nn.Module): 要训练的神经网络模型。
+        train_loader (torch.utils.data.DataLoader): 包含训练数据的 DataLoader。
+        val_loader (torch.utils.data.DataLoader): 包含验证数据的 DataLoader。
+        criterion (torch.nn.Module): 损失函数。
+        optimizer (torch.optim.Optimizer): 优化器。
+        scheduler (torch.optim.lr_scheduler._LRScheduler): 学习率调度器。
+        num_epochs (int): 要训练的总轮数。
+        device (torch.device): 用于计算的设备（CPU 或 GPU）。
+        writer (torch.utils.tensorboard.SummaryWriter): 用于 TensorBoard 可视化的 SummaryWriter 对象。
+        logger (logging.Logger): 用于记录输出的日志对象。
+        start_epoch (int, optional): 开始训练的轮数。用于恢复中断的训练。默认为 0。
+        config (object, optional): 包含训练配置的对象，如早停参数等。
+
+    Returns:
+        dict: 训练过程中表现最佳的模型状态字典。
+    """
     best_val_accuracy = 0
     best_model = None
     patience_counter = 0
@@ -15,6 +33,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
     min_delta = config.min_delta
     patience = config.patience
     save_dir = config.save_dir
+
     for epoch in range(start_epoch, num_epochs):
         model.train()
         running_loss = 0.0

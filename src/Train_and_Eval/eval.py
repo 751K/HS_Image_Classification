@@ -4,6 +4,24 @@ from sklearn.metrics import accuracy_score
 
 
 def evaluate_model(model, data_loader, criterion, device, logger, class_result=False):
+    """
+    评估模型性能。
+
+    Args:
+        model (torch.nn.Module): 要评估的神经网络模型。
+        data_loader (torch.utils.data.DataLoader): 包含评估数据的 DataLoader。
+        criterion (torch.nn.Module): 损失函数。
+        device (torch.device): 用于计算的设备（CPU 或 GPU）。
+        logger (logging.Logger): 用于记录输出的日志对象。
+        class_result (bool, optional): 是否计算并输出每个类别的准确率。默认为 False。
+
+    Returns:
+        tuple: 包含以下元素的元组：
+            - avg_loss (float): 平均损失。
+            - accuracy (float): 总体准确率。
+            - all_preds (numpy.ndarray): 所有预测标签的数组。
+            - all_labels (numpy.ndarray): 所有真实标签的数组。
+    """
     model.eval()
     running_loss = 0.0
     all_preds = []

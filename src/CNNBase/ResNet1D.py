@@ -2,8 +2,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from sklearn.model_selection import train_test_split
 from torch import Tensor
+
+from datesets.Dataset import prepare_data
 
 
 class ResidualBlock1D(nn.Module):
@@ -78,27 +79,6 @@ class ResNet1D(nn.Module):
         return f"ResNet1D(input_channels={self.input_channels}, num_classes={self.num_classes})"
 
 
-# 数据准备函数
-def prepare_data(data, labels, test_size=0.65, val_size=0.05, random_state=42):
-    # 重塑数据为 (pixels, bands)
-    bands, rows, cols = data.shape
-    X = data.reshape(bands, -1).T  # 转置使得形状为 (pixels, bands)
-    y = labels.flatten()
-
-    # 移除背景像素（标签为0的像素）
-    valid_pixels = y != 0
-    X = X[valid_pixels]
-    y = y[valid_pixels] - 1  # 将类别标签从1-based改为0-based
-
-    # 分割数据集
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state,
-                                                        stratify=y)
-    X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=val_size / (1 - test_size),
-                                                      random_state=random_state, stratify=y_train)
-
-    return X_train, y_train, X_val, y_val, X_test, y_test
-
-
 if __name__ == '__main__':
     # 假设我们有一个高光谱图像数据集
     bands, rows, cols = 200, 100, 100
@@ -109,15 +89,14 @@ if __name__ == '__main__':
     labels = np.random.randint(0, num_classes + 1, size=(rows, cols))  # 0 表示背景
 
     # 准备数据
-    X_train, y_train, X_val, y_val, X_test, y_test = prepare_data(data, labels)
+    X_train, y_train, X_val, y_val, X_test, y_test = prepare_data(data, labels, dim=1)
 
     # 创建模型实例
     model = ResNet1D(input_channels=bands, num_classes=num_classes)
-    print(model)
 
     # 测试模型
     batch_size = 32
-    input_data = torch.randn(batch_size, bands)  # 每个样本是一个像素的完整光谱
+    input_data = torch.randn(batch_size, bands)
     output = model(input_data)
     print(f"Input shape: {input_data.shape}")
     print(f"Output shape: {output.shape}")

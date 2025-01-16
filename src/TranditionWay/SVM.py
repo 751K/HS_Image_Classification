@@ -1,16 +1,5 @@
-import numpy as np
-from sklearn.svm import SVC
-from sklearn.metrics import accuracy_score, classification_report
-from typing import Tuple
-from tqdm import tqdm
-import matplotlib.pyplot as plt
-from matplotlib.patches import Patch
-from datetime import datetime
-import os
-
 from src.datesets.Dataset import prepare_data
 from src.datesets.datasets_load import load_dataset
-from src.draw.vis_cls import get_project_root
 
 import numpy as np
 from sklearn.svm import SVC

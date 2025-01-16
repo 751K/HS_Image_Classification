@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, classification_report
-from typing import Tuple, List
+from typing import Tuple
 
 from src.datesets.Dataset import prepare_data
 from src.datesets.datasets_load import load_dataset

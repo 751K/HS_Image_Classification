@@ -81,7 +81,7 @@ class ResNet3D(nn.Module):
         return x
 
     def __str__(self) -> str:
-        return f"ResNet3DHSI(input_channels={self.input_channels}, num_classes={self.num_classes})"
+        return f"ResNet3D(input_channels={self.input_channels}, num_classes={self.num_classes})"
 
 
 if __name__ == '__main__':

@@ -9,11 +9,21 @@
 - 模型训练与评估
 - 分类结果可视化
 
-## 技术栈
+## 模型类型及路径
 
-- 编程语言：Python
-- 框架与库：NumPy, SciPy, scikit-learn, PyTorch（根据你使用的库选择）
-- 工具：Git, Pycharm
+| 模型名称              | 类型                   | 路径                                      |
+|-------------------|----------------------|-----------------------------------------|
+| ResNet1D          | CNN                  | `src.CNNBase.ResNet1D`                  |
+| ResNet2D          | CNN                  | `src.CNNBase.ResNet2D`                  |
+| ResNet3D          | CNN                  | `src.CNNBase.ResNet3D`                  |
+| SwimTransformer   | Transformer          | `src.TransformerBase.SwimTransformer`   |
+| VisionTransformer | Transformer          | `src.TransformerBase.VisionTransformer` |
+| SSMamba           | Mamba                | `src.MambaBase.SSMamba`                 |
+| MambaHSI          | Mamba                | `src.MambaBase.MambaHSI`                |
+| LeeEtAl3D         | CNN                  | `src.CNNBase.LeeEtAl3D`                 |
+| MSAFMamba         | Mamba                | `src.MambaBase.MSAFMamba`               |
+| SSFTT             | Transformer          | `src.TransformerBase.SSFTT`             |
+| GCN2D             | Graph Neural Network | `src.CNNBase.GCN2D`                     |
 
 ## 使用说明
 

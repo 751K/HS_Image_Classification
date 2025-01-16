@@ -30,7 +30,7 @@ class Config:
         self.warmup_steps = 10
         self.learning_rate = 0.001
         self.seed = 42
-        self.datasets = 'Salinas'  # 可选:'Indian', 'Pavia', 'Salinas'
+        self.datasets = 'Pavia'  # 可选:'Indian', 'Pavia', 'Salinas'
         self.patch_size = 5
         # self.resume_checkpoint = '../results/LeeEtAl3D_0112_134402/checkpoint_epoch_40.pth'
         self.resume_checkpoint = None
@@ -48,12 +48,14 @@ class Config:
         self.umap_min_dist = 0.1
 
         self.stop_train = True
-        self.patience = 10  # 早停的耐心值
+        self.patience = 15  # 早停的耐心值
         self.min_delta = 0.001  # 被视为改进的最小变化量
 
         self.save_dir = os.path.join("..", "results",
                                      f"{self.datasets}_{self.model_name}_{datetime.now().strftime('%m%d_%H%M')}")
         os.makedirs(self.save_dir, exist_ok=True)
+
+        self.label_smoothing = 0.08
 
     @staticmethod
     def select_model():

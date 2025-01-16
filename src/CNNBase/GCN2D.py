@@ -1,8 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv, SAGEConv
-from torch_geometric.data import Data
+from torch_geometric.nn import GCNConv
 
 
 class SpectralGCNLayer(nn.Module):
@@ -72,8 +71,8 @@ class GCN2D(nn.Module):
 
         return x
 
-    def _create_grid_graph(self, height: int, width: int) -> torch.Tensor:
-        grid = torch.cartesian_prod(torch.arange(height), torch.arange(width))
+    @staticmethod
+    def _create_grid_graph(height: int, width: int) -> torch.Tensor:
         edge_index = []
 
         for i in range(height):

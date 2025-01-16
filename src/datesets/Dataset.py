@@ -20,13 +20,13 @@ class HSIDataset(Dataset):
         return self.data[idx], self.labels[idx]
 
 
-def create_patches(data, labels, patch_size=5):
-    rows, cols, bands = data.shape
+def create_patches(input_data, input_labels, patch_size=5):
+    rows, cols, bands = input_data.shape
     pad_width = patch_size // 2
 
     # 对数据进行填充
-    padded_data = np.pad(data, ((pad_width, pad_width), (pad_width, pad_width), (0, 0)), mode='reflect')
-    padded_labels = np.pad(labels, pad_width, mode='constant', constant_values=0)
+    padded_data = np.pad(input_data, ((pad_width, pad_width), (pad_width, pad_width), (0, 0)), mode='reflect')
+    padded_labels = np.pad(input_labels, pad_width, mode='constant', constant_values=0)
 
     # 使用 view_as_windows 生成 patches
     patches = view_as_windows(padded_data, (patch_size, patch_size, bands), step=1)
@@ -48,54 +48,14 @@ def create_patches(data, labels, patch_size=5):
     return patches, patch_labels
 
 
-def create_spectral_samples(data, labels, sequence_length=25):
-    bands, rows, cols = data.shape
-    flattened_data = data.reshape(bands, -1)  # shape: (bands, rows*cols)
-    flattened_labels = labels.flatten()
-
-    # 只保留非背景像素
-    valid_pixels = flattened_labels != 0
-    samples = flattened_data[:, valid_pixels]
-    sample_labels = flattened_labels[valid_pixels] - 1
-
-    # 如果像素数不能被 sequence_length 整除，截断到最近的倍数
-    num_samples = (samples.shape[1] // sequence_length) * sequence_length
-    samples = samples[:, :num_samples]
-    sample_labels = sample_labels[:num_samples]
-
-    # 重塑为 (bands, sequence_length, num_sequences)
-    samples = samples.reshape(bands, sequence_length, -1)
-
-    # 转换标签以匹配序列
-    sample_labels = sample_labels.reshape(-1, sequence_length)[:, 0]
-
-    return samples, sample_labels
-
-
-def create_spectral_patches(data, labels, patch_size, stride):
-    bands, rows, cols = data.shape
-
-    # 计算可以创建的patch数量
-    num_patches = (bands - patch_size) // stride + 1
-
-    # 初始化patch数组
-    patches = np.zeros((rows * cols * num_patches, patch_size))
-    patch_labels = np.zeros(rows * cols * num_patches, dtype=int)
-
-    index = 0
-    for i in range(rows):
-        for j in range(cols):
-            if labels[i, j] != 0:  # 只处理非背景像素
-                for k in range(0, bands - patch_size + 1, stride):
-                    patches[index] = data[k:k + patch_size, i, j]
-                    patch_labels[index] = labels[i, j] - 1  # 将类别标签从1-based改为0-based
-                    index += 1
-
-    # 裁剪数组到实际使用的大小
-    patches = patches[:index]
-    patch_labels = patch_labels[:index]
-
-    return patches, patch_labels
+def reshape_data_1D(data, labels):
+    rows, cols, bands, = data.shape
+    y = labels.flatten()
+    valid_pixels = y != 0
+    X = data.reshape(-1, bands)
+    X = X[valid_pixels]
+    y = y[valid_pixels]
+    return X, y
 
 
 def prepare_data(data, labels, test_size=0.65, val_size=0.05, random_state=42, dim=1, patch_size=5):
@@ -103,15 +63,7 @@ def prepare_data(data, labels, test_size=0.65, val_size=0.05, random_state=42, d
         raise ValueError("Dim must be 1, 2, or 3")
 
     if dim == 1:
-        rows, cols, bands, = data.shape
-
-        y = labels.flatten()
-        valid_pixels = y != 0
-
-        X = data.reshape(-1, bands)
-
-        X = X[valid_pixels]
-        y = y[valid_pixels]
+        X, y = reshape_data_1D(data, labels)
 
     else:  # dim == 2 or dim == 3
         # patch: (num_patches, bands, patch_size, patch_size)
@@ -122,8 +74,8 @@ def prepare_data(data, labels, test_size=0.65, val_size=0.05, random_state=42, d
             X = patches.reshape(patches.shape[0], 1, patches.shape[1], patch_size, patch_size)
         y = patch_labels
 
-    train_data, train_label, val_data, val_label, test_data, test_label = optimized_split(X, y, test_size=test_size, val_size=val_size,
-                                                                                          random_state=random_state)
+    train_data, train_label, val_data, val_label, test_data, test_label = (
+        optimized_split(X, y, test_size=test_size, val_size=val_size, random_state=random_state))
 
     return train_data, train_label, val_data, val_label, test_data, test_label
 
