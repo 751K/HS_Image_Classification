@@ -15,22 +15,22 @@ class Config:
         # 获取调用此类的文件名
         caller_frame = inspect.stack()[1]
         caller_filename = os.path.basename(caller_frame.filename)
+        torch.backends.cudnn.benchmark = True
 
         if caller_filename == 'main.py' and self.test_mode is not True:
             self.model_name = self.select_model()
             self.num_epochs = 100
-            torch.backends.cudnn.benchmark = True
         else:
-            self.model_name = 'ResNet1D'
-            self.num_epochs = 2
-            torch.autograd.set_detect_anomaly = True
+            self.model_name = 'MSAFMamba'
+            self.num_epochs = 100
+            # torch.autograd.set_detect_anomaly = True
 
-        self.batch_size = 128
+        self.batch_size = 64
         self.num_workers = 0
         self.warmup_steps = 10
-        self.learning_rate = 0.001
+        self.learning_rate = 0.0005
         self.seed = 42
-        self.datasets = 'Botswana'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana'
+        self.datasets = 'Salinas'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana'
         self.patch_size = 5
         # self.resume_checkpoint = '../results/LeeEtAl3D_0112_134402/checkpoint_epoch_40.pth'
         self.resume_checkpoint = None
@@ -56,6 +56,8 @@ class Config:
         os.makedirs(self.save_dir, exist_ok=True)
 
         self.label_smoothing = 0.08
+
+        self.optuna_trials = 100  # Optuna 试验次数
 
     @staticmethod
     def select_model():

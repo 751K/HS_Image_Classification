@@ -4,16 +4,17 @@ from typing import Callable
 from timm.layers import DropPath
 from functools import partial
 from src.MambaBase.SSM import SSM
+import torch.nn.functional as F
 
 
 class AdaptiveFusion(nn.Module):
     def __init__(self, dim):
         super().__init__()
         self.fc = nn.Sequential(
-            nn.Linear(dim * 2, 64),
+            nn.Linear(dim * 2, 16),  # 计算空间和光谱特征的合并表示
             nn.ReLU(),
-            nn.Linear(64, 2),
-            nn.Softmax(dim=-1)
+            nn.Linear(16, 2),  # 输出2个权重
+            nn.Softmax(dim=-1)  # 归一化
         )
 
     def forward(self, x_spa, x_spe):
@@ -25,9 +26,8 @@ class AdaptiveFusion(nn.Module):
         global_features = torch.cat([global_spa, global_spe], dim=-1)  # (B, dim*2)
         weights = self.fc(global_features)  # (B, 2)
 
-        # 应用权重
-        fused = weights[:, 0].unsqueeze(1).unsqueeze(1) * x_spa + \
-                weights[:, 1].unsqueeze(1).unsqueeze(1) * x_spe
+        # 广播计算融合
+        fused = (weights[:, 0].unsqueeze(1).unsqueeze(1) * x_spa) + (weights[:, 1].unsqueeze(1).unsqueeze(1) * x_spe)
 
         return fused
 
@@ -35,7 +35,7 @@ class AdaptiveFusion(nn.Module):
 class ResidualSpectralSpatialBlock(nn.Module):
     def __init__(self, embed_dim, **kwargs):
         super().__init__()
-        self.block = spectral_spatial_block(embed_dim, **kwargs)
+        self.block = SpectralSpatialBlock(embed_dim, **kwargs)
         self.shortcut = nn.Sequential(
             nn.Linear(embed_dim, embed_dim),
             nn.LayerNorm(embed_dim)
@@ -49,115 +49,96 @@ class ResidualSpectralSpatialBlock(nn.Module):
 
 
 class MultiScaleFeatureExtraction(nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_channels, spatial_kernels=None, spectral_kernels=None):
         super().__init__()
         # 确保每个尺度的通道数加起来等于 out_channels
+        if spectral_kernels is None:
+            spectral_kernels = [5, 7, 9, 11]
+        if spatial_kernels is None:
+            spatial_kernels = [3, 5, 7, 9]
         scale_out_channels = out_channels // 4
 
         self.scale1 = SpatialSpectralFeatureExtraction(in_channels, scale_out_channels,
-                                                       spatial_kernel_sizes=[3], spectral_kernel_size=5)
+                                                       spatial_kernel_size=spatial_kernels[0],
+                                                       spectral_kernel_size=spectral_kernels[0])
         self.scale2 = SpatialSpectralFeatureExtraction(in_channels, scale_out_channels,
-                                                       spatial_kernel_sizes=[5], spectral_kernel_size=7)
+                                                       spatial_kernel_size=spatial_kernels[1],
+                                                       spectral_kernel_size=spectral_kernels[1])
         self.scale3 = SpatialSpectralFeatureExtraction(in_channels, scale_out_channels,
-                                                       spatial_kernel_sizes=[7], spectral_kernel_size=9)
+                                                       spatial_kernel_size=spatial_kernels[2],
+                                                       spectral_kernel_size=spectral_kernels[2])
         self.scale4 = SpatialSpectralFeatureExtraction(in_channels, scale_out_channels,
-                                                       spatial_kernel_sizes=[9], spectral_kernel_size=11)
+                                                       spatial_kernel_size=spatial_kernels[3],
+                                                       spectral_kernel_size=spectral_kernels[3])
 
         self.fusion = nn.Sequential(
             nn.Conv2d(out_channels, out_channels, kernel_size=1),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True)
+            nn.ReLU()
         )
 
-    def forward(self, x):
-        x1 = self.scale1(x)
-        x2 = self.scale2(x)
-        x3 = self.scale3(x)
-        x4 = self.scale4(x)
+    def forward(self, input_data):
+        x1 = self.scale1(input_data)
+        x2 = self.scale2(input_data)
+        x3 = self.scale3(input_data)
+        x4 = self.scale4(input_data)
         x_cat = torch.cat([x1, x2, x3, x4], dim=1)
         return self.fusion(x_cat)
 
 
 class SpatialSpectralFeatureExtraction(nn.Module):
-    def __init__(self, in_channels, out_channels, spatial_kernel_sizes=[3], spectral_kernel_size=7):
+    def __init__(self, in_channels, out_channels, spatial_kernel_size=3, spectral_kernel_size=7):
         super().__init__()
 
         self.out_channels = out_channels
 
-        # 3D convolution paths with different kernel sizes
-        self.conv3d_paths = nn.ModuleList()
-        for spatial_kernel_size in spatial_kernel_sizes:
-            self.conv3d_paths.append(nn.Sequential(
-                # Spectral convolution
-                nn.Conv3d(1, out_channels // 2,
-                          kernel_size=(spectral_kernel_size, 1, 1),
-                          padding=(spectral_kernel_size // 2, 0, 0)),
-                nn.BatchNorm3d(out_channels // 2),
-                nn.ReLU(inplace=True),
-                # Spatial convolution (depthwise)
-                nn.Conv3d(out_channels // 2,
-                          out_channels // 2,
-                          kernel_size=(1, spatial_kernel_size, spatial_kernel_size),
-                          padding=(0, spatial_kernel_size // 2, spatial_kernel_size // 2),
-                          groups=out_channels // 2),
-                nn.BatchNorm3d(out_channels // 2),
-                nn.ReLU(inplace=True)
-            ))
+        # 3D卷积路径
+        self.conv3d_path = nn.Sequential(
+            # 光谱卷积
+            nn.Conv3d(1, out_channels // 2,
+                      kernel_size=(spectral_kernel_size, 1, 1),
+                      padding=(spectral_kernel_size // 2, 0, 0)),
+            nn.BatchNorm3d(out_channels // 2),
+            nn.ReLU(),
+            # 空间卷积（深度可分离卷积）
+            nn.Conv3d(out_channels // 2,
+                      out_channels // 2,
+                      kernel_size=(1, spatial_kernel_size, spatial_kernel_size),
+                      padding=(0, spatial_kernel_size // 2, spatial_kernel_size // 2),
+                      groups=out_channels // 2),
+            nn.BatchNorm3d(out_channels // 2),
+            nn.ReLU()
+        )
 
-        # 2D convolution path (depthwise separable)
+        # 2D卷积路径（深度可分离卷积）
         self.conv2d_depthwise = nn.Conv2d(in_channels, in_channels, kernel_size=3, padding=1, groups=in_channels)
         self.conv2d_pointwise = nn.Conv2d(in_channels, out_channels // 2, kernel_size=1)
 
         self.bn2d = nn.BatchNorm2d(out_channels // 2)
-        self.relu = nn.ReLU(inplace=True)
 
-    def forward(self, x):
+    def forward(self, input_data):
         # x shape: (B, C, H, W)
-        B, C, H, W = x.shape
+        # 3D卷积路径
+        x_3d = input_data.unsqueeze(1)  # (B, 1, C, H, W)
+        x_3d_out = self.conv3d_path(x_3d)
+        x_3d_out = x_3d_out.max(dim=2)[0]  # (B, out_channels // 2, H, W)
 
-        # 3D convolution paths
-        x_3d = x.unsqueeze(1)  # (B, 1, C, H, W)
-        x_3d_outputs = []
-        for conv3d_path in self.conv3d_paths:
-            x_3d_out = conv3d_path(x_3d)
-            x_3d_out = x_3d_out.max(dim=2)[0]  # (B, out_channels // 2, H, W)
-            x_3d_outputs.append(x_3d_out)
-
-        x_3d_combined = torch.cat(x_3d_outputs, dim=1)  # (B, out_channels // 2, H, W)
-
-        # 2D convolution path
-        x_2d = self.conv2d_depthwise(x)
+        # 2D卷积路径
+        x_2d = self.conv2d_depthwise(input_data)
         x_2d = self.conv2d_pointwise(x_2d)
-        x_2d = self.relu(self.bn2d(x_2d))
+        x_2d = self.bn2d(x_2d)
+        x_2d = F.relu(x_2d)  # ReLU 在 BatchNorm 后进行
 
-        # Concatenate 3D and 2D features
-        x_combined = torch.cat([x_3d_combined, x_2d], dim=1)  # (B, out_channels, H, W)
+        # 合并光谱和空间特征
+        x_combined = torch.cat([x_3d_out, x_2d], dim=1)  # (B, out_channels, H, W)
 
         return x_combined
 
 
-class block_1D(nn.Module):
+class Basic_Block(nn.Module):
     """
     一维块结构，包含自注意力机制和残差连接。
-
-    这个模块实现了一个基于状态空间模型的一维块，可以选择是否使用双向处理和类别标记。
-
-    Args:
-        hidden_dim (int): 隐藏层的维度。默认为0。
-        drop_path (float): DropPath的概率。默认为0。
-        norm_layer (Callable[..., torch.nn.Module]): 归一化层的类型。默认为LayerNorm。
-        attn_drop_rate (float): 注意力层的dropout率。默认为0。
-        d_state (int): 状态空间模型的状态维度。默认为16。
-        bi (bool): 是否使用双向处理。默认为True。
-        cls (bool): 是否包含类别标记。默认为True。
-        **kwargs: 传递给SSM的额外参数。
-
-    Attributes:
-        ln_1 (nn.Module): 层归一化。
-        self_attention (SSM): 状态空间模型的自注意力层。
-        drop_path (DropPath): DropPath层。
-        bi (bool): 是否使用双向处理。
-        cls (bool): 是否包含类别标记。
+    这个模块实现了一个基于状态空间模型的一维块。
     """
 
     def __init__(
@@ -167,102 +148,74 @@ class block_1D(nn.Module):
             norm_layer: Callable[..., torch.nn.Module] = partial(nn.LayerNorm, eps=1e-6),
             attn_drop_rate: float = 0,
             d_state: int = 16,
-            bi: bool = True,
             cls: bool = True,
+            activation: str = 'relu',  # 可以选择激活函数类型
             **kwargs,
     ):
         super().__init__()
         self.ln_1 = norm_layer(hidden_dim)
-
         self.self_attention = SSM(d_model=hidden_dim, dropout=attn_drop_rate, d_state=d_state, **kwargs)
         self.drop_path = DropPath(drop_path)
-        self.bi = bi
         self.cls = cls
 
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
+        # 根据需要选择激活函数
+        if activation == 'relu':
+            self.activation = nn.ReLU()
+        elif activation == 'gelu':
+            self.activation = nn.GELU()
+        else:
+            self.activation = None  # 如果没有激活函数，直接使用线性层
+
+    def forward(self, input_data: torch.Tensor) -> torch.Tensor:
         """
         前向传播函数。
 
         Args:
-            input (torch.Tensor): 输入张量，形状为 (batch_size, sequence_length, hidden_dim)。
+            input_data (torch.Tensor): 输入张量，形状为 (batch_size, sequence_length, hidden_dim)。
 
         Returns:
             torch.Tensor: 输出张量，形状与输入相同。
-
-        Note:
-            如果 self.bi 为 True，则进行双向处理。
-            如果 self.cls 为 True，则特殊处理类别标记。
         """
-        x = self.ln_1(input)
-        x1 = self.self_attention(x)
-        if self.bi:
-            if self.cls:
-                # 处理包含类别标记的双向情况
-                x2 = x[:, 0:-1, :]  # 除去最后一个标记（类别标记）
-                cls_token = x[:, -1:, :]  # 类别标记
-                x2 = torch.flip(x2, dims=[1])  # 反转序列
-                x2 = torch.cat((x2, cls_token), dim=1)  # 重新添加类别标记
-                x3 = self.self_attention(x2)
+        tmp_data = self.ln_1(input_data)
+        x1 = self.self_attention(tmp_data)
 
-                # 再次处理结果
-                x2 = x3[:, 0:-1, :]
-                cls_token = x3[:, -1:, :]
-                x3 = torch.flip(x2, dims=[1])
-                x3 = torch.cat((x3, cls_token), dim=1)
-            else:
-                # 不包含类别标记的双向处理
-                x3 = torch.flip(x, dims=[1])
-                x3 = self.self_attention(x3)
-                x3 = torch.flip(x3, dims=[1])
+        if self.activation:
+            x1 = self.activation(x1)
 
-            # 合并双向结果并应用残差连接
-            return self.drop_path((x1 + x3) / 2) + input
-        else:
-            # 单向处理
-            return self.drop_path(x1) + input
+        # 仅保留单向处理
+        return self.drop_path(x1) + input_data
 
 
-class spectral_spatial_block(nn.Module):
+class SpectralSpatialBlock(nn.Module):
     """
     空间-光谱块类，用于处理和融合高光谱图像的空间和光谱信息。
 
-    这个模块设计用于同时处理高光谱图像的空间和光谱特征。它包含两个独立的 1D 块
-    （一个用于空间特征，一个用于光谱特征），以及一个可选的特征融合机制。
-    这种设计允许模型分别捕获空间和光谱域的信息，然后通过融合步骤将它们结合起来。
+    该模块分别使用 1D 块处理空间和光谱特征，并根据需求执行特征融合。
 
     Args:
         embed_dim (int): 嵌入向量的维度。
-        bi (bool, optional): 是否在 1D 块中使用双向处理。默认为 False。
-        N (int, optional): 未使用的参数，为了兼容性保留。默认为 1。
-        drop_path (float, optional): 用于 1D 块的 drop path 概率。默认为 0.0。
-        norm_layer (nn.Module, optional): 用于 1D 块的归一化层类型。默认为 nn.LayerNorm。
+        drop_path (float, optional): 用于 1D 块的 Drop Path 概率。默认为 0.0。
         cls (bool, optional): 是否在 1D 块中包含分类令牌。默认为 True。
         fu (bool, optional): 是否启用特征融合。默认为 True。
 
     Attributes:
-        spa_block (block_1D): 处理空间特征的 1D 块。
-        spe_block (block_1D): 处理光谱特征的 1D 块。
+        spa_block (Basic_Block): 处理空间特征的 1D 块。
+        spe_block (Basic_Block): 处理光谱特征的 1D 块。
         fu (bool): 是否启用特征融合。
-        l1 (nn.Sequential): 特征融合使用的线性层和激活函数（如果 fu=True）。
+        fusion_layer (nn.Sequential, optional): 特征融合层（如果 fu=True）。
     """
 
-    def __init__(self, embed_dim, bi=False, N=1, drop_path=0.0, norm_layer=nn.LayerNorm, cls=True, fu=True):
-        super(spectral_spatial_block, self).__init__()
-        self.spa_block = block_1D(
-            hidden_dim=embed_dim,
-            drop_path=drop_path,
-            bi=bi,
-            cls=cls,
-        )
-        self.spe_block = block_1D(
-            hidden_dim=embed_dim,
-            drop_path=drop_path,
-            bi=bi,
-            cls=cls
-        )
+    def __init__(self, embed_dim, drop_path=0.0, cls=True, fu=True):
+        super(SpectralSpatialBlock, self).__init__()
+
+        # 空间和光谱特征的 1D 块
+        self.spa_block = Basic_Block(hidden_dim=embed_dim, drop_path=drop_path, cls=cls)
+        self.spe_block = Basic_Block(hidden_dim=embed_dim, drop_path=drop_path, cls=cls)
+
+        # 特征融合选项
         self.fu = fu
         if self.fu:
-            self.l1 = nn.Sequential(
+            self.fusion_layer = nn.Sequential(
                 nn.Linear(embed_dim, embed_dim, bias=False),
                 nn.Sigmoid(),
             )
@@ -271,94 +224,105 @@ class spectral_spatial_block(nn.Module):
         """
         执行空间-光谱块的前向传播。
 
-        这个方法首先分别通过空间和光谱的 1D 块处理输入特征。
-        如果启用了特征融合（fu=True），则会计算空间和光谱特征的平均值，
-        通过一个线性层和 Sigmoid 激活函数生成注意力权重，
-        然后将这个权重应用到原始的空间和光谱特征上。
+        分别处理空间和光谱特征，并在启用融合时进行特征融合。
 
         Args:
-            x_spa (torch.Tensor): 空间特征张量，形状为 (B, N_spa, embed_dim)
-                B: 批次大小
-                N_spa: 空间序列长度（patch数量 + 1，如果 cls=True）
-                embed_dim: 嵌入维度
-            x_spe (torch.Tensor): 光谱特征张量，形状为 (B, N_spe, embed_dim)
-                N_spe: 光谱序列长度（patch数量 + 1，如果 cls=True）
+            x_spa (torch.Tensor): 空间特征张量，形状为 (B, N_spa, embed_dim)。
+            x_spe (torch.Tensor): 光谱特征张量，形状为 (B, N_spe, embed_dim)。
 
         Returns:
-            tuple: 包含两个张量的元组：
-                - x_spa (torch.Tensor): 更新后的空间特征，形状为 (B, N_spa, embed_dim)
-                - x_spe (torch.Tensor): 更新后的光谱特征，形状为 (B, N_spe, embed_dim)
+            tuple: 更新后的空间和光谱特征。
+                - x_spa (torch.Tensor): 更新后的空间特征。
+                - x_spe (torch.Tensor): 更新后的光谱特征。
 
         Note:
-            - 如果 fu=False，则直接返回经过各自 1D 块处理后的特征，不进行融合。
-            - 特征融合步骤使用了平均池化和元素级乘法，这可能会影响计算复杂度和内存使用。
+            - 如果 fu=False，直接返回空间和光谱特征，不进行融合。
         """
+        # 分别通过空间和光谱块处理输入特征
         x_spa = self.spa_block(x_spa)
         x_spe = self.spe_block(x_spe)
 
         if self.fu:
+            # 计算空间和光谱特征的平均池化
             x_spa_c = x_spa.mean(1)  # (B, embed_dim)
             x_spe_c = x_spe.mean(1)  # (B, embed_dim)
-            sig = self.l1((x_spa_c + x_spe_c) / 2).unsqueeze(1)  # (B, 1, embed_dim)
-            x_spa = x_spa * sig  # (B, N_spa, embed_dim)
-            x_spe = x_spe * sig  # (B, N_spe, embed_dim)
+
+            # 融合两者的特征，生成注意力权重
+            fusion_weights = self.fusion_layer((x_spa_c + x_spe_c) / 2).unsqueeze(1)  # (B, 1, embed_dim)
+
+            # 将权重应用到空间和光谱特征
+            x_spa = x_spa * fusion_weights  # (B, N_spa, embed_dim)
+            x_spe = x_spe * fusion_weights  # (B, N_spe, embed_dim)
 
         return x_spa, x_spe
 
+    def __repr__(self):
+        return f"SpectralSpatialBlock(embed_dim={self.spa_block.hidden_dim}, fu={self.fu})"
+
 
 class MSAFMamba(nn.Module):
-    def __init__(self, input_channels, num_classes, embed_dim=128, depth=3, bi=True,
-                 norm_layer=nn.LayerNorm, fu=True):
+    def __init__(self, input_channels, num_classes, embed_dim=128, depth=3,
+                 fu=True, spectral_kernels=None, spatial_kernels=None):
         super().__init__()
-
-        self.input_channels = input_channels
-        self.embed_dim = embed_dim
         self.dim = 2
 
-        # 使用多尺度特征提取模块
-        self.feature_extraction = MultiScaleFeatureExtraction(input_channels, embed_dim)
+        # 如果传入的是元组，转换成列表；如果没有传入，使用默认值
+        spectral_kernels = list(spectral_kernels) if isinstance(spectral_kernels, tuple) else (
+                spectral_kernels or [5, 7, 9, 11])
+        spatial_kernels = list(spatial_kernels) if isinstance(spatial_kernels, tuple) else (
+                spatial_kernels or [3, 5, 7, 9])
 
-        # 使用残差空间-光谱块
+        # 1. 使用多尺度特征提取模块
+        self.feature_extraction = MultiScaleFeatureExtraction(
+            input_channels, embed_dim, spatial_kernels, spectral_kernels
+        )
+
+        # 2. 使用残差空间-光谱块
         self.blocks = nn.ModuleList([
-            ResidualSpectralSpatialBlock(embed_dim, bi=bi, N=26, cls=True, fu=fu) for _ in range(depth)
+            ResidualSpectralSpatialBlock(embed_dim, cls=True, fu=fu) for _ in range(depth)
         ])
 
+        # 3. 使用自适应融合
         self.adaptive_fusion = AdaptiveFusion(embed_dim)
 
-        self.norm = norm_layer(embed_dim)
+        # 4. 分类头部
+        self.norm = nn.LayerNorm(embed_dim)
         self.head = nn.Linear(embed_dim, num_classes)
 
-    def forward_features(self, x):
-        # x shape: (B, C, H, W)
-        B, C, H, W = x.shape
+    def forward_features(self, root_data):
+        B, C, Height, Width = root_data.shape
 
-        # 使用多尺度特征提取模块
-        x = self.feature_extraction(x)  # (B, embed_dim, H, W)
+        # 1. 使用多尺度特征提取
+        root_data = self.feature_extraction(root_data)  # (B, embed_dim, H, W)
+        root_data = root_data.permute(0, 2, 3, 1).reshape(B, Height * Width, -1)  # (B, H*W, embed_dim)
 
-        x = x.permute(0, 2, 3, 1).reshape(B, H * W, -1)  # (B, H*W, embed_dim)
+        # 2. 初始化空间和光谱特征
+        spatial_features, spectral_features = root_data, root_data
 
-        # 双路处理
-        x_spa, x_spe = x, x
-
-        # 通过残差光谱-空间块
+        # 3. 通过残差空间-光谱块
         for blk in self.blocks:
-            x_spa, x_spe = blk(x_spa, x_spe)
+            spatial_features, spectral_features = blk(spatial_features, spectral_features)
 
-        # 使用自适应融合
-        outcome = self.adaptive_fusion(x_spa, x_spe)
+        # 4. 使用自适应融合
+        outcome = self.adaptive_fusion(spatial_features, spectral_features)
         outcome = self.norm(outcome)
 
-        return outcome.view(B, H, W, -1)  # (B, H, W, embed_dim)
+        return outcome.view(B, Height, Width, -1)  # (B, H, W, embed_dim)
 
-    def forward(self, x):
-        features = self.forward_features(x)  # (B, H, W, embed_dim)
+    def forward(self, input_data):
+        # 1. 提取特征
+        features = self.forward_features(input_data)  # (B, H, W, embed_dim)
 
-        # 对所有像素的特征进行平均池化
+        # 2. 全局池化
         global_features = features.mean(dim=[1, 2])  # (B, embed_dim)
 
-        # 对全局特征进行分类
-        output = self.head(global_features)  # (B, num_classes)
-        return output
+        # 3. 分类
+        outcome = self.head(global_features)  # (B, num_classes)
+        return outcome
+
+    def __repr__(self):
+        return f"MSAFMamba(input_channels={self.input_channels}, num_classes={self.head.out_features}, " \
+               f"embed_dim={self.embed_dim}, depth={len(self.blocks)})"
 
 
 if __name__ == "__main__":
