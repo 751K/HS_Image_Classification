@@ -261,14 +261,14 @@ class SpectralSpatialBlock(nn.Module):
 
 
 class MSAFMamba(nn.Module):
-    def __init__(self, input_channels, num_classes, embed_dim=128, depth=3,
+    def __init__(self, input_channels, num_classes, embed_dim=128, depth=5,
                  fu=True, spectral_kernels=None, spatial_kernels=None):
         super().__init__()
         self.dim = 2
 
         # 如果传入的是元组，转换成列表；如果没有传入，使用默认值
         spectral_kernels = list(spectral_kernels) if isinstance(spectral_kernels, tuple) else (
-                spectral_kernels or [5, 7, 9, 11])
+                spectral_kernels or [3, 5, 7, 9])
         spatial_kernels = list(spatial_kernels) if isinstance(spatial_kernels, tuple) else (
                 spatial_kernels or [3, 5, 7, 9])
 
