@@ -25,13 +25,17 @@ class Config:
             self.num_epochs = 100
             # torch.autograd.set_detect_anomaly = True
 
-        self.batch_size = 64
+        self.batch_size = 128
         self.num_workers = 0
         self.warmup_steps = 10
-        self.learning_rate = 0.0005
+        self.learning_rate = 0.0003
+
+        self.test_size = 0.8
+        self.val_size = 0.15
+
         self.seed = 42
         self.datasets = 'Salinas'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana'
-        self.patch_size = 5
+        self.patch_size = 7
         # self.resume_checkpoint = '../results/LeeEtAl3D_0112_134402/checkpoint_epoch_40.pth'
         self.resume_checkpoint = None
 
@@ -48,11 +52,14 @@ class Config:
         self.umap_min_dist = 0.1
 
         self.stop_train = True
-        self.patience = 15  # 早停的耐心值
-        self.min_delta = 0.001  # 被视为改进的最小变化量
-
-        self.save_dir = os.path.join("..", "results",
-                                     f"{self.datasets}_{self.model_name}_{datetime.now().strftime('%m%d_%H%M')}")
+        self.patience = 10  # 早停的耐心值
+        self.min_delta = 0.0005  # 被视为改进的最小变化量
+        if caller_filename == 'main.py':
+            self.save_dir = os.path.join("..", "results",
+                                         f"{self.datasets}_{self.model_name}_{datetime.now().strftime('%m%d_%H%M')}")
+        else:
+            self.save_dir = os.path.join("...", "test_results",
+                                         f"{self.datasets}_{self.model_name}_{datetime.now().strftime('%m%d_%H%M')}")
         os.makedirs(self.save_dir, exist_ok=True)
 
         self.label_smoothing = 0.08

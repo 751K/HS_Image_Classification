@@ -57,8 +57,10 @@ def main():
         logger.info(f"模型创建完成：{config.model_name}")
 
         # 准备数据
-        X_train, y_train, X_val, y_val, X_test, y_test = prepare_data(data, labels,
+        X_train, y_train, X_val, y_val, X_test, y_test = prepare_data(data, labels, test_size=config.test_size,
+                                                                      val_size=config.val_size,
                                                                       dim=model.dim, patch_size=config.patch_size)
+        logger.info(f"训练集大小: {X_train.shape}")
         logger.info("数据预处理完成")
         train_loader, val_loader, test_loader = create_data_loaders(
             X_train, y_train, X_val, y_val, X_test, y_test, config.batch_size, config.num_workers,

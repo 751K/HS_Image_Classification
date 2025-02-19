@@ -122,23 +122,21 @@ def objective(trial: Trial, config, logger, data, labels, num_classes, input_cha
     """
 
     # 超参数搜索空间
-    learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-1, log=True)  # 学习率范围
-    batch_size = trial.suggest_categorical('batch_size', [32, 64, 128, 256])  # 批大小选择
+    learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-2, log=True)  # 学习率范围
+    batch_size = trial.suggest_categorical('batch_size', [32, 64, 128])  # 批大小选择
     patch_size = trial.suggest_int('patch_size', 3, 9, step=2)  # 卷积核的尺寸（奇数）
     embed_dim = trial.suggest_categorical('embed_dim', [64, 128, 256])  # 嵌入维度
     depth = trial.suggest_int('depth', 2, 6)  # 网络深度（残差块数）
     fu = trial.suggest_categorical('fu', [True, False])  # 是否启用特征融合
     spectral_kernel_choices = [
-        [5, 7, 9, 11],
         [3, 5, 7, 9],
-        [7, 9, 11, 13],
-        [3, 5, 7, 11]
+        [5, 7, 9, 11],
+        [7, 9, 11, 13]
     ]
     spatial_kernel_choices = [
+        [1, 3, 5, 7],
         [3, 5, 7, 9],
-        [5, 7, 9, 11],
-        [3, 7, 9, 11],
-        [3, 5, 9, 11]
+        [5, 7, 9, 11]
     ]
 
     trial_spectral_kernels = trial.suggest_int('spectral_kernels', 0, len(spectral_kernel_choices) - 1)
