@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, cohen_kappa_score
 
 
 def evaluate_model(model, data_loader, criterion, device, logger, class_result=False):
@@ -19,6 +19,8 @@ def evaluate_model(model, data_loader, criterion, device, logger, class_result=F
         tuple: 包含以下元素的元组：
             - avg_loss (float): 平均损失。
             - accuracy (float): 总体准确率。
+            - aa (float): 平均准确率 (Average Accuracy)。
+            - kappa (float): Kappa 系数。
             - all_preds (numpy.ndarray): 所有预测标签的数组。
             - all_labels (numpy.ndarray): 所有真实标签的数组。
     """
@@ -26,6 +28,7 @@ def evaluate_model(model, data_loader, criterion, device, logger, class_result=F
     running_loss = 0.0
     all_preds = []
     all_labels = []
+
     with torch.no_grad():
         for inputs, labels in data_loader:
             inputs = inputs.to(device)
@@ -45,7 +48,7 @@ def evaluate_model(model, data_loader, criterion, device, logger, class_result=F
     all_labels = np.array(all_labels)
 
     # 计算总体准确率
-    accuracy = accuracy_score(all_labels, all_preds)
+    overall_accuracy = accuracy_score(all_labels, all_preds)
     avg_loss = running_loss / len(all_labels)
 
     # 计算每个类别的准确率
@@ -59,7 +62,15 @@ def evaluate_model(model, data_loader, criterion, device, logger, class_result=F
             class_accuracies[class_id] = class_accuracy
             logger.info("类别 %d: 准确率 = %.4f", class_id, class_accuracy)
 
-    # 输出总体结果
-    logger.info("平均损失: %.4f, 总体准确率: %.4f", avg_loss, accuracy)
+    # 计算平均准确率 (AA)
+    aa = np.mean([accuracy_score(all_labels[all_labels == class_id], all_preds[all_labels == class_id]) for class_id in
+                  np.unique(all_labels)])
 
-    return avg_loss, accuracy, all_preds, all_labels
+    # 计算 Kappa 系数
+    kappa = cohen_kappa_score(all_labels, all_preds)
+
+    # 输出总体结果
+    logger.info("平均损失: %.4f, 总体准确率(OA): %.4f", avg_loss, overall_accuracy)
+    logger.info("平均准确率 (AA): %.4f, Kappa 系数: %.4f", aa, kappa)
+
+    return avg_loss, (overall_accuracy, aa, kappa), all_preds, all_labels

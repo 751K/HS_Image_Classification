@@ -185,16 +185,16 @@ def objective(trial: Trial, config, logger, data, labels, num_classes, input_cha
     # 评估模型
     model.load_state_dict(best_model_state_dict)
     _, val_accuracy, _, _ = evaluate_model(model, val_loader, criterion, device, logger, class_result=False)
-
+    oa, aa, kappa = val_accuracy
     # 关闭 TensorBoard 记录器
     writer.close()
 
     # 记录该试验的最佳验证精度
-    trial.set_user_attr('best_val_accuracy', val_accuracy)
-    logger.info(f"试验 {trial.number} 完成，验证准确率: {val_accuracy:.4f}")
+    trial.set_user_attr('best_val_accuracy', oa)
+    logger.info(f"试验 {trial.number} 完成，验证准确率: {oa:.4f}")
 
     # 返回当前试验的验证准确率，供 Optuna 用来优化
-    return val_accuracy
+    return oa
 
 
 def main():

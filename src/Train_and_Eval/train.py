@@ -63,8 +63,9 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
         epoch_loss = running_loss / len(train_loader.dataset)
         epoch_acc = correct / total
 
-        val_loss, val_accuracy, _, _ = evaluate_model(model, val_loader, criterion, device, logger, class_result=False)
-
+        val_loss, metrix, _, _ = evaluate_model(model, val_loader, criterion, device, logger, class_result=False)
+        val_accuracy, aa, kappa = metrix
+        
         writer.add_scalar('Loss/train', epoch_loss, epoch)
         writer.add_scalar('Accuracy/train', epoch_acc, epoch)
         writer.add_scalar('Loss/val', val_loss, epoch)

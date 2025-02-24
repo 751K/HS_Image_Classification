@@ -35,14 +35,14 @@ class Config:
 
         self.seed = 42
         self.datasets = 'Salinas'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana'
-        self.patch_size = 7
+        self.patch_size = 19
         # self.resume_checkpoint = '../results/LeeEtAl3D_0112_134402/checkpoint_epoch_40.pth'
         self.resume_checkpoint = None
 
         # 降维相关配置
         self.perform_dim_reduction = True
         self.dim_reduction = 'PCA'  # 可选: 'PCA', 'KernelPCA', 'MDS', 'UMAP'，‘NMF’
-        self.n_components = 80  # 降维后的组件数
+        self.n_components = 30  # 降维后的组件数
         self.pca_whiten = False
         self.kpca_kernel = 'rbf'
         self.kpca_gamma = None

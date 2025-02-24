@@ -4,6 +4,7 @@ import random
 
 import numpy as np
 import torch
+from sympy.abc import kappa
 
 
 def set_seed(seed):
@@ -55,10 +56,13 @@ def save_test_results(all_preds, all_labels, accuracy, classification_report, pa
             return o.tolist()
         raise TypeError(f'Object of type {o.__class__.__name__} is not JSON serializable')
 
+    oa, aa, kappa = accuracy
     results = {
         "predictions": all_preds,
         "true_labels": all_labels,
-        "accuracy": float(accuracy),
+        "overall_accuracy": float(oa),
+        "average_accuracy": float(aa),
+        "kappa": float(kappa),
         "classification_report": classification_report
     }
 
