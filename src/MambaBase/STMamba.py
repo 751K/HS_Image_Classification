@@ -69,7 +69,6 @@ class SToken(nn.Module):  # 97.4 oa:  97.802 #  --> L
         squeeze_seq = self.fc1(squeeze_seq)
 
         out = squeeze_seq + self.bias.expand(x.shape[0], -1, -1)
-        # out = torch.cat((out, x[:,1:,:]), dim=1)
         return out * x
 
 
@@ -91,7 +90,6 @@ class S6_noC(nn.Module):
         self.ST = SToken(d_model)
 
         self.Sigmoid = nn.Sigmoid()
-        ''' '''
 
     def forward(self, x):  # A,B:[B,L,N,N] C:[B,L,N] X:[B,L,D]    N是隐藏层维度N << S
 
@@ -99,16 +97,12 @@ class S6_noC(nn.Module):
 
         B_0 = self.LN_B(x)
         C_ = self.LN_C(x)
-        ''''''
 
         T_ = self.ST(x)  # [B L D]
-        ''''''
         delta = self.LN_delta(x)  # [B L D]
-        # delta = F.softplus(delta + self.delta)  # [B L D]  #
         delta = self.Sigmoid(delta + self.delta)
 
         A_ = torch.einsum('B L D,L D -> B L D', delta, self.A)  # [B L D]
-        # A_ = torch.exp(A_)
         B_ = torch.einsum('B L D,B L D->B L D ', delta, B_0)  # [B L D]
 
         output = []
@@ -127,7 +121,6 @@ class S6_noC(nn.Module):
         x_out = torch.cat(output, dim=1)
         x_out = x_out * z
 
-        ''''''
         return x_out
 
 
@@ -135,11 +128,11 @@ class Scan(nn.Module):
     def __init__(self):  # 64, 1, 8 ,8
         super().__init__()
 
-    def forward(self, x):  # [64,21,5,5]
+    @staticmethod
+    def forward(x):  # [64,21,5,5]
         cen = x.shape[2] // 2  # 5
         x = rearrange(x, 'b c h w -> b h w c')  # [64,5,5,21]
         x_out = torch.zeros(x.shape[0], x.shape[1] * x.shape[2], x.shape[3]).cuda()  # [64,25,21]
-        # 把中心位置放在扫描后序列的开头，作为扫描启示
         x_out[:, 0, :] = x[:, cen, cen, :]
 
         assignments_map = {
@@ -192,7 +185,7 @@ class STMambaBlock(nn.Module):
                 Residual(LayerNormalize(dim, MLP_Block(dim, mlp_dim, dropout=dropout)))
             ]))
 
-    def forward(self, x, mask=None):  # x:[64,5,64]
+    def forward(self, x):  # x:[64,5,64]
         for S6_noC, mlp in self.layers:
             x = S6_noC(x)  # go to attention
             x = nn.AdaptiveAvgPool1d(1)(x.transpose(1, 2), ).squeeze()  # [B D]
@@ -205,45 +198,44 @@ class STMamba(nn.Module):
         super(STMamba, self).__init__()
         self.dim = 3
         self.conv3d_features = nn.Sequential(
-            nn.Conv3d(1, out_channels=8, kernel_size=(3, 3, 3)),
+            nn.Conv3d(1, out_channels=8, kernel_size=(3, 3, 3), padding=(1, 1, 1)),
             nn.BatchNorm3d(8),
             nn.ReLU(),
         )
 
         self.conv2d_features = nn.Sequential(
-            nn.Conv2d(in_channels=8 * (input_channels - 2), out_channels=num_classes, kernel_size=(3, 3)),
+            nn.Conv2d(in_channels=8 * input_channels, out_channels=num_classes, kernel_size=(3, 3), padding=(1, 1)),
             nn.BatchNorm2d(num_classes),
             nn.ReLU(),
         )
 
-        self.pos_embedding = nn.Parameter(torch.empty(1, ((patch - 4) ** 2 + 1), num_classes))
-        torch.nn.init.uniform_(self.pos_embedding)  # , std=.02
+        self.pos_embedding = torch.nn.init.uniform_(nn.Parameter(torch.empty(1, (patch ** 2 + 1), num_classes)))
 
         self.cls_token = nn.Parameter(torch.zeros(1, 1, num_classes))
         self.dropout = nn.Dropout(emb_dropout)
         self.scan = Scan()
-        self.STMambaBlock = STMambaBlock((patch - 4) ** 2 + 1, num_classes, depth, mlp_dim, dropout)
+        self.STMambaBlock = STMambaBlock(patch ** 2 + 1, num_classes, depth, mlp_dim, dropout)
 
-    def forward(self, x, mask=None):  # x:[64, 1, 30, 9, 9]
+    def forward(self, input_data):  # x:[64, 1, 30, 9, 9]
 
-        x = self.conv3d_features(x)  # ->x:[64,8,28,7,7 ]
+        input_data = self.conv3d_features(input_data)  # ->x:[64,8,28,7,7 ]
 
-        x = rearrange(x, 'b c h w y -> b (c h) w y')  # 8个通道合一，增强光谱空间特征 -> [64,8*28,7,7]
-        x = self.conv2d_features(x)  # ->[64,21,5,5]
+        input_data = rearrange(input_data, 'b c h w y -> b (c h) w y')  # 8个通道合一，增强光谱空间特征 -> [64,8*28,7,7]
+        input_data = self.conv2d_features(input_data)  # ->[64,21,5,5]
 
-        x = self.scan(x)  # ->[64,p2,21]
-        cls_tokens = self.cls_token.expand(x.shape[0], -1, -1)  # ->[64,1,21]
+        input_data = self.scan(input_data)  # ->[64,p2,21]
+        cls_tokens = self.cls_token.expand(input_data.shape[0], -1, -1)  # ->[64,1,21]
 
-        x = torch.cat((cls_tokens, x), dim=1)
-        x += self.pos_embedding
-        x = self.dropout(x)
+        input_data = torch.cat((cls_tokens, input_data), dim=1)
+        input_data += self.pos_embedding
+        input_data = self.dropout(input_data)
 
-        x = self.STMambaBlock(x, mask)
+        input_data = self.STMambaBlock(input_data)
 
-        if x.shape[0] == 16 or x.shape[0] == 21:
-            x = x.unsqueeze(0)  # 最后一个批次只有一个数据
+        if input_data.shape[0] == 16 or input_data.shape[0] == 21:
+            input_data = input_data.unsqueeze(0)  # 最后一个批次只有一个数据
 
-        return x
+        return input_data
 
 
 if __name__ == "__main__":

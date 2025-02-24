@@ -1,463 +1,228 @@
-import torch
-import argparse
-import torch.nn as nn
-import torch.utils.data as Data
-import torch.backends.cudnn as cudnn
-from scipy.io import loadmat
-from scipy.io import savemat
-from torch import optim
-from torch.autograd import Variable
-from Vit_pytorch import ViT
-from sklearn.metrics import confusion_matrix
-
-import matplotlib.pyplot as plt
-from matplotlib import colors
 import numpy as np
-import time
-import os
-
-parser = argparse.ArgumentParser("HSI")
-parser.add_argument('--dataset', choices=['Indian', 'Pavia', 'Houston'], default='Indian', help='dataset to use')
-parser.add_argument('--flag_test', choices=['test', 'train'], default='train', help='testing mark')
-parser.add_argument('--mode', choices=['ViT', 'CAF'], default='ViT', help='mode choice')
-parser.add_argument('--gpu_id', default='0', help='gpu id')
-parser.add_argument('--seed', type=int, default=0, help='number of seed')
-parser.add_argument('--batch_size', type=int, default=64, help='number of batch size')
-parser.add_argument('--test_freq', type=int, default=5, help='number of evaluation')
-parser.add_argument('--patches', type=int, default=1, help='number of patches')
-parser.add_argument('--band_patches', type=int, default=1, help='number of related band')
-parser.add_argument('--epoches', type=int, default=300, help='epoch number')
-parser.add_argument('--learning_rate', type=float, default=5e-4, help='learning rate')
-parser.add_argument('--gamma', type=float, default=0.9, help='gamma')
-parser.add_argument('--weight_decay', type=float, default=0, help='weight_decay')
-args = parser.parse_args()
-
-os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_id)
+import torch
+import torch.nn as nn
+from einops import rearrange, repeat
+from torch.nn import functional as F
 
 
-# -------------------------------------------------------------------------------
-# 定位训练和测试样本
-def chooose_train_and_test_point(train_data, test_data, true_data, num_classes):
-    number_train = []
-    pos_train = {}
-    number_test = []
-    pos_test = {}
-    number_true = []
-    pos_true = {}
-    # -------------------------for train data------------------------------------
-    for i in range(num_classes):
-        each_class = []
-        each_class = np.argwhere(train_data == (i + 1))
-        number_train.append(each_class.shape[0])
-        pos_train[i] = each_class
+class Residual(nn.Module):
+    def __init__(self, fn):
+        super().__init__()
+        self.fn = fn
 
-    total_pos_train = pos_train[0]
-    for i in range(1, num_classes):
-        total_pos_train = np.r_[total_pos_train, pos_train[i]]  # (695,2)
-    total_pos_train = total_pos_train.astype(int)
-    # --------------------------for test data------------------------------------
-    for i in range(num_classes):
-        each_class = []
-        each_class = np.argwhere(test_data == (i + 1))
-        number_test.append(each_class.shape[0])
-        pos_test[i] = each_class
-
-    total_pos_test = pos_test[0]
-    for i in range(1, num_classes):
-        total_pos_test = np.r_[total_pos_test, pos_test[i]]  # (9671,2)
-    total_pos_test = total_pos_test.astype(int)
-    # --------------------------for true data------------------------------------
-    for i in range(num_classes + 1):
-        each_class = []
-        each_class = np.argwhere(true_data == i)
-        number_true.append(each_class.shape[0])
-        pos_true[i] = each_class
-
-    total_pos_true = pos_true[0]
-    for i in range(1, num_classes + 1):
-        total_pos_true = np.r_[total_pos_true, pos_true[i]]
-    total_pos_true = total_pos_true.astype(int)
-
-    return total_pos_train, total_pos_test, total_pos_true, number_train, number_test, number_true
+    def forward(self, x, **kwargs):
+        return self.fn(x, **kwargs) + x
 
 
-# -------------------------------------------------------------------------------
-# 边界拓展：镜像
-def mirror_hsi(height, width, band, input_normalize, patch=5):
-    padding = patch // 2
-    mirror_hsi = np.zeros((height + 2 * padding, width + 2 * padding, band), dtype=float)
-    # 中心区域
-    mirror_hsi[padding:(padding + height), padding:(padding + width), :] = input_normalize
-    # 左边镜像
-    for i in range(padding):
-        mirror_hsi[padding:(height + padding), i, :] = input_normalize[:, padding - i - 1, :]
-    # 右边镜像
-    for i in range(padding):
-        mirror_hsi[padding:(height + padding), width + padding + i, :] = input_normalize[:, width - 1 - i, :]
-    # 上边镜像
-    for i in range(padding):
-        mirror_hsi[i, :, :] = mirror_hsi[padding * 2 - i - 1, :, :]
-    # 下边镜像
-    for i in range(padding):
-        mirror_hsi[height + padding + i, :, :] = mirror_hsi[height + padding - 1 - i, :, :]
+class PreNorm(nn.Module):
+    def __init__(self, dim, fn):
+        super().__init__()
+        self.norm = nn.LayerNorm(dim)
+        self.fn = fn
 
-    print("**************************************************")
-    print("patch is : {}".format(patch))
-    print("mirror_image shape : [{0},{1},{2}]".format(mirror_hsi.shape[0], mirror_hsi.shape[1], mirror_hsi.shape[2]))
-    print("**************************************************")
-    return mirror_hsi
+    def forward(self, x, **kwargs):
+        return self.fn(self.norm(x), **kwargs)
 
 
-# -------------------------------------------------------------------------------
-# 获取patch的图像数据
-def gain_neighborhood_pixel(mirror_image, point, i, patch=5):
-    x = point[i, 0]
-    y = point[i, 1]
-    temp_image = mirror_image[x:(x + patch), y:(y + patch), :]
-    return temp_image
+class FeedForward(nn.Module):
+    def __init__(self, dim, hidden_dim, dropout=0.):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(dim, hidden_dim),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim, dim),
+            nn.Dropout(dropout)
+        )
+
+    def forward(self, x):
+        return self.net(x)
 
 
-def gain_neighborhood_band(x_train, band, band_patch, patch=5):
-    nn = band_patch // 2
-    pp = (patch * patch) // 2
-    x_train_reshape = x_train.reshape(x_train.shape[0], patch * patch, band)
-    x_train_band = np.zeros((x_train.shape[0], patch * patch * band_patch, band), dtype=float)
-    # 中心区域
-    x_train_band[:, nn * patch * patch:(nn + 1) * patch * patch, :] = x_train_reshape
-    # 左边镜像
-    for i in range(nn):
+class Attention(nn.Module):
+    def __init__(self, dim, heads, dim_head, dropout):
+        super().__init__()
+        inner_dim = dim_head * heads
+        self.heads = heads
+        self.scale = dim_head ** -0.5
+
+        self.to_qkv = nn.Linear(dim, inner_dim * 3, bias=False)
+        self.to_out = nn.Sequential(
+            nn.Linear(inner_dim, dim),
+            nn.Dropout(dropout)
+        )
+
+    def forward(self, x, mask=None):
+        # x:[b,n,dim]
+        b, n, _ = x.shape
+        h = self.heads
+
+        # get qkv tuple:([b,n,head_num*head_dim],[...],[...])
+        qkv = self.to_qkv(x).chunk(3, dim=-1)
+        # split q,k,v from [b,n,head_num*head_dim] -> [b,head_num,n,head_dim]
+        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=h), qkv)
+
+        # transpose(k) * q / sqrt(head_dim) -> [b,head_num,n,n]
+        dots = torch.einsum('bhid,bhjd->bhij', q, k) * self.scale
+        mask_value = -torch.finfo(dots.dtype).max
+
+        # mask value: -inf
+        if mask is not None:
+            mask = F.pad(mask.flatten(1), (1, 0), value=True)
+            assert mask.shape[-1] == dots.shape[-1], 'mask has incorrect dimensions'
+            mask = mask[:, None, :] * mask[:, :, None]
+            dots.masked_fill_(~mask, mask_value)
+            del mask
+
+        # softmax normalization -> attention matrix
+        attn = dots.softmax(dim=-1)
+        # value * attention matrix -> output
+        out = torch.einsum('bhij,bhjd->bhid', attn, v)
+        # cat all output -> [b, n, head_num*head_dim]
+        out = rearrange(out, 'b h n d -> b n (h d)')
+        out = self.to_out(out)
+        return out
+
+
+class Transformer(nn.Module):
+    def __init__(self, dim, depth, heads, dim_head, mlp_head, dropout, num_channel):
+        super().__init__()
+
+        # 初始化 transformer 层
+        self.layers = nn.ModuleList([])
+        for _ in range(depth):
+            self.layers.append(nn.ModuleList([
+                Residual(PreNorm(dim, Attention(dim, heads=heads, dim_head=dim_head, dropout=dropout))),
+                Residual(PreNorm(dim, FeedForward(dim, mlp_head, dropout=dropout)))
+            ]))
+
+        self.skipcat = nn.ModuleList([])
+        for _ in range(depth - 2):
+            self.skipcat.append(nn.Conv2d(num_channel + 1, num_channel + 1, (1, 2), 1, 0))
+
+    def forward(self, x, mask=None):
+        last_output = []
+        nl = 0
+        for attn, ff in self.layers:
+            last_output.append(x)
+            if nl > 1:
+                x = self.skipcat[nl - 2](
+                    torch.cat([x.unsqueeze(3), last_output[nl - 2].unsqueeze(3)], dim=3)).squeeze(3)
+            x = attn(x, mask=mask)
+            x = ff(x)
+            nl += 1
+        return x
+
+
+class SFT(nn.Module):
+    def __init__(self, input_channels, num_classes, patch_size=5, near_band=3, hidden_dim=64, depth=5, heads=8, mlp_dim=16,
+                 dim_head=16, dropout=0.1, emb_dropout=0.1):
+        super().__init__()
+        self.pos_embedding = nn.Parameter(torch.randn(1, input_channels + 1, hidden_dim))
+        self.patch_to_embedding = nn.Linear(patch_size ** 2 * near_band, hidden_dim)
+        self.cls_token = nn.Parameter(torch.randn(1, 1, hidden_dim))
+
+        self.dropout = nn.Dropout(emb_dropout)
+        self.transformer = Transformer(hidden_dim, depth, heads, dim_head, mlp_dim, dropout, input_channels)
+        self.near_band = near_band
+        self.to_latent = nn.Identity()
+        self.dim = 2
+
+        self.mlp_head = nn.Sequential(
+            nn.LayerNorm(hidden_dim),
+            nn.Linear(hidden_dim, num_classes)
+        )
+
+    def prepare(self, input_data):
+        nn = self.near_band // 2
+        batch_size, band, H, W = input_data.shape
+        pp = (W ** 2) // 2
+
+        data = rearrange(input_data, 'b c h w -> b (h w) c')
+
+        times_data = torch.zeros(
+            (batch_size, H ** 2 * self.near_band, band),
+            dtype=torch.float,
+            device=input_data.device
+        )
+
+        # Set center band
+        center_start = nn * H ** 2
+        center_end = (nn + 1) * H ** 2
+        times_data[:, center_start:center_end, :] = data
+
         if pp > 0:
-            x_train_band[:, i * patch * patch:(i + 1) * patch * patch, :i + 1] = x_train_reshape[:, :, band - i - 1:]
-            x_train_band[:, i * patch * patch:(i + 1) * patch * patch, i + 1:] = x_train_reshape[:, :, :band - i - 1]
+            for i in range(nn):
+                start_idx = i * H ** 2
+                end_idx = (i + 1) * H ** 2
+                times_data[:, start_idx:end_idx, :i + 1] = data[:, :, band - i - 1:]
+                times_data[:, start_idx:end_idx, i + 1:] = data[:, :, :band - i - 1]
+
+                start_idx = (nn + i + 1) * H ** 2
+                end_idx = (nn + i + 2) * H ** 2
+                times_data[:, start_idx:end_idx, :band - i - 1] = data[:, :, i + 1:]
+                times_data[:, start_idx:end_idx, band - i - 1:] = data[:, :, :i + 1]
         else:
-            x_train_band[:, i:(i + 1), :(nn - i)] = x_train_reshape[:, 0:1, (band - nn + i):]
-            x_train_band[:, i:(i + 1), (nn - i):] = x_train_reshape[:, 0:1, :(band - nn + i)]
-    # 右边镜像
-    for i in range(nn):
-        if pp > 0:
-            x_train_band[:, (nn + i + 1) * patch * patch:(nn + i + 2) * patch * patch, :band - i - 1] = x_train_reshape[
-                                                                                                        :, :, i + 1:]
-            x_train_band[:, (nn + i + 1) * patch * patch:(nn + i + 2) * patch * patch, band - i - 1:] = x_train_reshape[
-                                                                                                        :, :, :i + 1]
-        else:
-            x_train_band[:, (nn + 1 + i):(nn + 2 + i), (band - i - 1):] = x_train_reshape[:, 0:1, :(i + 1)]
-            x_train_band[:, (nn + 1 + i):(nn + 2 + i), :(band - i - 1)] = x_train_reshape[:, 0:1, (i + 1):]
-    return x_train_band
+            for i in range(nn):
+                times_data[:, i:(i + 1), :(nn - i)] = data[:, 0:1, band - nn + i:]
+                times_data[:, i:(i + 1), (nn - i):] = data[:, 0:1, :band - nn + i]
+
+                times_data[:, nn + 1 + i:nn + 2 + i, band - i - 1:] = data[:, 0:1, :i + 1]
+                times_data[:, nn + 1 + i:nn + 2 + i, :band - i - 1] = data[:, 0:1, i + 1:]
+
+        return rearrange(times_data, 'b n c -> b c n')
+
+    def forward(self, x, mask=None):
+        x = self.prepare(x)
+        # 将每个补丁向量嵌入到嵌入大小：[batch, patch_num, embedding_size]
+        x = self.patch_to_embedding(x)
+        b, n, _ = x.shape
+
+        # 添加位置嵌入
+        cls_tokens = repeat(self.cls_token, '() n d -> b n d', b=b)  # [b,1,dim]
+        x = torch.cat((cls_tokens, x), dim=1)  # [b,n+1,dim]
+        x += self.pos_embedding[:, :(n + 1)]
+        x = self.dropout(x)
+
+        # transformer: x[b,n + 1,dim] -> x[b,n + 1,dim]
+        x = self.transformer(x, mask)
+
+        # 分类：使用 cls_token 输出
+        x = self.to_latent(x[:, 0])
+
+        # MLP 分类层
+        return self.mlp_head(x)
 
 
-# -------------------------------------------------------------------------------
-# 汇总训练数据和测试数据
-def train_and_test_data(mirror_image, band, train_point, test_point, true_point, patch=5, band_patch=3):
-    x_train = np.zeros((train_point.shape[0], patch, patch, band), dtype=float)
-    x_test = np.zeros((test_point.shape[0], patch, patch, band), dtype=float)
-    x_true = np.zeros((true_point.shape[0], patch, patch, band), dtype=float)
-    for i in range(train_point.shape[0]):
-        x_train[i, :, :, :] = gain_neighborhood_pixel(mirror_image, train_point, i, patch)
-    for j in range(test_point.shape[0]):
-        x_test[j, :, :, :] = gain_neighborhood_pixel(mirror_image, test_point, j, patch)
-    for k in range(true_point.shape[0]):
-        x_true[k, :, :, :] = gain_neighborhood_pixel(mirror_image, true_point, k, patch)
-    print("x_train shape = {}, type = {}".format(x_train.shape, x_train.dtype))
-    print("x_test  shape = {}, type = {}".format(x_test.shape, x_test.dtype))
-    print("x_true  shape = {}, type = {}".format(x_true.shape, x_test.dtype))
-    print("**************************************************")
+if __name__ == "__main__":
+    torch.manual_seed(42)
 
-    x_train_band = gain_neighborhood_band(x_train, band, band_patch, patch)
-    x_test_band = gain_neighborhood_band(x_test, band, band_patch, patch)
-    x_true_band = gain_neighborhood_band(x_true, band, band_patch, patch)
-    print("x_train_band shape = {}, type = {}".format(x_train_band.shape, x_train_band.dtype))
-    print("x_test_band  shape = {}, type = {}".format(x_test_band.shape, x_test_band.dtype))
-    print("x_true_band  shape = {}, type = {}".format(x_true_band.shape, x_true_band.dtype))
-    print("**************************************************")
-    return x_train_band, x_test_band, x_true_band
+    # 设置模型参数
+    in_chans = 30  # 输入通道数
+    num_classes = 21  # 类别数量
+    patch = 5  # patch大小
 
+    # 创建模型
+    model = SFT(input_channels=in_chans, num_classes=num_classes)
 
-# -------------------------------------------------------------------------------
-# 标签y_train, y_test
-def train_and_test_label(number_train, number_test, number_true, num_classes):
-    y_train = []
-    y_test = []
-    y_true = []
-    for i in range(num_classes):
-        for j in range(number_train[i]):
-            y_train.append(i)
-        for k in range(number_test[i]):
-            y_test.append(i)
-    for i in range(num_classes + 1):
-        for j in range(number_true[i]):
-            y_true.append(i)
-    y_train = np.array(y_train)
-    y_test = np.array(y_test)
-    y_true = np.array(y_true)
-    print("y_train: shape = {} ,type = {}".format(y_train.shape, y_train.dtype))
-    print("y_test: shape = {} ,type = {}".format(y_test.shape, y_test.dtype))
-    print("y_true: shape = {} ,type = {}".format(y_true.shape, y_true.dtype))
-    print("**************************************************")
-    return y_train, y_test, y_true
+    # 设置设备
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+    model = model.to(device)
 
+    # 测试不同输入尺寸
+    test_sizes = [(patch, patch)]
 
-# -------------------------------------------------------------------------------
-class AvgrageMeter(object):
+    for size in test_sizes:
+        H, W = size
+        x = torch.randn(4, in_chans, H, W).to(device)
+        print(f"Input shape: {x.shape}")
 
-    def __init__(self):
-        self.reset()
+        with torch.no_grad():
+            output = model(x)
 
-    def reset(self):
-        self.avg = 0
-        self.sum = 0
-        self.cnt = 0
+        print(f"Output shape: {output.shape}")
 
-    def update(self, val, n=1):
-        self.sum += val * n
-        self.cnt += n
-        self.avg = self.sum / self.cnt
-
-
-# -------------------------------------------------------------------------------
-def accuracy(output, target, topk=(1,)):
-    maxk = max(topk)
-    batch_size = target.size(0)
-
-    _, pred = output.topk(maxk, 1, True, True)
-    pred = pred.t()
-    correct = pred.eq(target.view(1, -1).expand_as(pred))
-
-    res = []
-    for k in topk:
-        correct_k = correct[:k].view(-1).float().sum(0)
-        res.append(correct_k.mul_(100.0 / batch_size))
-    return res, target, pred.squeeze()
-
-
-# -------------------------------------------------------------------------------
-# train model
-def train_epoch(model, train_loader, criterion, optimizer):
-    objs = AvgrageMeter()
-    top1 = AvgrageMeter()
-    tar = np.array([])
-    pre = np.array([])
-    for batch_idx, (batch_data, batch_target) in enumerate(train_loader):
-        batch_data = batch_data.cuda()
-        batch_target = batch_target.cuda()
-
-        optimizer.zero_grad()
-        batch_pred = model(batch_data)
-        loss = criterion(batch_pred, batch_target)
-        loss.backward()
-        optimizer.step()
-
-        prec1, t, p = accuracy(batch_pred, batch_target, topk=(1,))
-        n = batch_data.shape[0]
-        objs.update(loss.data, n)
-        top1.update(prec1[0].data, n)
-        tar = np.append(tar, t.data.cpu().numpy())
-        pre = np.append(pre, p.data.cpu().numpy())
-    return top1.avg, objs.avg, tar, pre
-
-
-# -------------------------------------------------------------------------------
-# validate model
-def valid_epoch(model, valid_loader, criterion, optimizer):
-    objs = AvgrageMeter()
-    top1 = AvgrageMeter()
-    tar = np.array([])
-    pre = np.array([])
-    for batch_idx, (batch_data, batch_target) in enumerate(valid_loader):
-        batch_data = batch_data.cuda()
-        batch_target = batch_target.cuda()
-
-        batch_pred = model(batch_data)
-
-        loss = criterion(batch_pred, batch_target)
-
-        prec1, t, p = accuracy(batch_pred, batch_target, topk=(1,))
-        n = batch_data.shape[0]
-        objs.update(loss.data, n)
-        top1.update(prec1[0].data, n)
-        tar = np.append(tar, t.data.cpu().numpy())
-        pre = np.append(pre, p.data.cpu().numpy())
-
-    return tar, pre
-
-
-def test_epoch(model, test_loader, criterion, optimizer):
-    objs = AvgrageMeter()
-    top1 = AvgrageMeter()
-    tar = np.array([])
-    pre = np.array([])
-    for batch_idx, (batch_data, batch_target) in enumerate(test_loader):
-        batch_data = batch_data.cuda()
-        batch_target = batch_target.cuda()
-
-        batch_pred = model(batch_data)
-
-        _, pred = batch_pred.topk(1, 1, True, True)
-        pp = pred.squeeze()
-        pre = np.append(pre, pp.data.cpu().numpy())
-    return pre
-
-
-# -------------------------------------------------------------------------------
-def output_metric(tar, pre):
-    matrix = confusion_matrix(tar, pre)
-    OA, AA_mean, Kappa, AA = cal_results(matrix)
-    return OA, AA_mean, Kappa, AA
-
-
-# -------------------------------------------------------------------------------
-def cal_results(matrix):
-    shape = np.shape(matrix)
-    number = 0
-    sum = 0
-    AA = np.zeros([shape[0]], dtype=np.float)
-    for i in range(shape[0]):
-        number += matrix[i, i]
-        AA[i] = matrix[i, i] / np.sum(matrix[i, :])
-        sum += np.sum(matrix[i, :]) * np.sum(matrix[:, i])
-    OA = number / np.sum(matrix)
-    AA_mean = np.mean(AA)
-    pe = sum / (np.sum(matrix) ** 2)
-    Kappa = (OA - pe) / (1 - pe)
-    return OA, AA_mean, Kappa, AA
-
-
-# -------------------------------------------------------------------------------
-# Parameter Setting
-np.random.seed(args.seed)
-torch.manual_seed(args.seed)
-torch.cuda.manual_seed(args.seed)
-cudnn.deterministic = True
-cudnn.benchmark = False
-# prepare data
-if args.dataset == 'Indian':
-    data = loadmat('./data/IndianPine.mat')
-elif args.dataset == 'Pavia':
-    data = loadmat('./data/Pavia.mat')
-elif args.dataset == 'Houston':
-    data = loadmat('./data/Houston.mat')
-else:
-    raise ValueError("Unkknow dataset")
-color_mat = loadmat('./data/AVIRIS_colormap.mat')
-TR = data['TR']
-TE = data['TE']
-input = data['input']  # (145,145,200)
-label = TR + TE
-num_classes = np.max(TR)
-
-color_mat_list = list(color_mat)
-color_matrix = color_mat[color_mat_list[3]]  # (17,3)
-# normalize data by band norm
-input_normalize = np.zeros(input.shape)
-for i in range(input.shape[2]):
-    input_max = np.max(input[:, :, i])
-    input_min = np.min(input[:, :, i])
-    input_normalize[:, :, i] = (input[:, :, i] - input_min) / (input_max - input_min)
-# data size
-height, width, band = input.shape
-print("height={0},width={1},band={2}".format(height, width, band))
-# -------------------------------------------------------------------------------
-# obtain train and test data
-total_pos_train, total_pos_test, total_pos_true, number_train, number_test, number_true = chooose_train_and_test_point(
-    TR, TE, label, num_classes)
-mirror_image = mirror_hsi(height, width, band, input_normalize, patch=args.patches)
-x_train_band, x_test_band, x_true_band = train_and_test_data(mirror_image, band, total_pos_train, total_pos_test,
-                                                             total_pos_true, patch=args.patches,
-                                                             band_patch=args.band_patches)
-y_train, y_test, y_true = train_and_test_label(number_train, number_test, number_true, num_classes)
-# -------------------------------------------------------------------------------
-# load data
-x_train = torch.from_numpy(x_train_band.transpose(0, 2, 1)).type(torch.FloatTensor)  # [695, 200, 7, 7]
-y_train = torch.from_numpy(y_train).type(torch.LongTensor)  # [695]
-Label_train = Data.TensorDataset(x_train, y_train)
-x_test = torch.from_numpy(x_test_band.transpose(0, 2, 1)).type(torch.FloatTensor)  # [9671, 200, 7, 7]
-y_test = torch.from_numpy(y_test).type(torch.LongTensor)  # [9671]
-Label_test = Data.TensorDataset(x_test, y_test)
-x_true = torch.from_numpy(x_true_band.transpose(0, 2, 1)).type(torch.FloatTensor)
-y_true = torch.from_numpy(y_true).type(torch.LongTensor)
-Label_true = Data.TensorDataset(x_true, y_true)
-
-label_train_loader = Data.DataLoader(Label_train, batch_size=args.batch_size, shuffle=True)
-label_test_loader = Data.DataLoader(Label_test, batch_size=args.batch_size, shuffle=True)
-label_true_loader = Data.DataLoader(Label_true, batch_size=100, shuffle=False)
-
-# -------------------------------------------------------------------------------
-# create model
-model = ViT(
-    image_size=args.patches,
-    near_band=args.band_patches,
-    num_patches=band,
-    num_classes=num_classes,
-    dim=64,
-    depth=5,
-    heads=4,
-    mlp_dim=8,
-    dropout=0.1,
-    emb_dropout=0.1,
-    mode=args.mode
-)
-model = model.cuda()
-# criterion
-criterion = nn.CrossEntropyLoss().cuda()
-# optimizer
-optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.epoches // 10, gamma=args.gamma)
-# -------------------------------------------------------------------------------
-if args.flag_test == 'test':
-    if args.mode == 'ViT':
-        model.load_state_dict(torch.load('./ViT.pt'))
-    elif (args.mode == 'CAF') & (args.patches == 1):
-        model.load_state_dict(torch.load('./SpectralFormer_pixel.pt'))
-    elif (args.mode == 'CAF') & (args.patches == 7):
-        model.load_state_dict(torch.load('./SpectralFormer_patch.pt'))
-    else:
-        raise ValueError("Wrong Parameters")
-    model.eval()
-    tar_v, pre_v = valid_epoch(model, label_test_loader, criterion, optimizer)
-    OA2, AA_mean2, Kappa2, AA2 = output_metric(tar_v, pre_v)
-
-    # output classification maps
-    pre_u = test_epoch(model, label_true_loader, criterion, optimizer)
-    prediction_matrix = np.zeros((height, width), dtype=float)
-    for i in range(total_pos_true.shape[0]):
-        prediction_matrix[total_pos_true[i, 0], total_pos_true[i, 1]] = pre_u[i] + 1
-    plt.subplot(1, 1, 1)
-    plt.imshow(prediction_matrix, colors.ListedColormap(color_matrix))
-    plt.xticks([])
-    plt.yticks([])
-    plt.show()
-    savemat('matrix.mat', {'P': prediction_matrix, 'label': label})
-elif args.flag_test == 'train':
-    print("start training")
-    tic = time.time()
-    for epoch in range(args.epoches):
-        scheduler.step()
-
-        # train model
-        model.train()
-        train_acc, train_obj, tar_t, pre_t = train_epoch(model, label_train_loader, criterion, optimizer)
-        OA1, AA_mean1, Kappa1, AA1 = output_metric(tar_t, pre_t)
-        print("Epoch: {:03d} train_loss: {:.4f} train_acc: {:.4f}"
-              .format(epoch + 1, train_obj, train_acc))
-
-        if (epoch % args.test_freq == 0) | (epoch == args.epoches - 1):
-            model.eval()
-            tar_v, pre_v = valid_epoch(model, label_test_loader, criterion, optimizer)
-            OA2, AA_mean2, Kappa2, AA2 = output_metric(tar_v, pre_v)
-
-    toc = time.time()
-    print("Running Time: {:.2f}".format(toc - tic))
-    print("**************************************************")
-
-print("Final result:")
-print("OA: {:.4f} | AA: {:.4f} | Kappa: {:.4f}".format(OA2, AA_mean2, Kappa2))
-print(AA2)
-print("**************************************************")
-print("Parameter:")
-
-
-def print_args(args):
-    for k, v in zip(args.keys(), args.values()):
-        print("{0}: {1}".format(k, v))
-
-
-print_args(vars(args))
+    # 计算并打印模型参数总数
+    total_params = sum(p.numel() for p in model.parameters())
+    print(f"Total parameters: {total_params}")

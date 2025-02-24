@@ -35,7 +35,7 @@ class Config:
 
         self.seed = 42
         self.datasets = 'Salinas'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana'
-        self.patch_size = 9
+        self.patch_size = 5
         # self.resume_checkpoint = '../results/LeeEtAl3D_0112_134402/checkpoint_epoch_40.pth'
         self.resume_checkpoint = None
 
