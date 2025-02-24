@@ -1,3 +1,8 @@
+# This code is from the repository: https://github.com/AlanLowell/STMamba This is the official implementation of the
+# paper: R. Ming, N. Chen, J. Peng, W. Sun and Z. Ye, "Semantic Tokenization-Based Mamba for Hyperspectral Image
+# Classification," in IEEE Journal of Selected Topics in Applied Earth Observations and Remote Sensing,
+# with some modifications made here.
+
 import torch
 from einops import rearrange
 from torch import nn
@@ -127,49 +132,52 @@ class S6_noC(nn.Module):
 
 
 class Scan(nn.Module):
-    def __init__(self, seq, dim):  # 64, 1, 8 ,8
+    def __init__(self):  # 64, 1, 8 ,8
         super().__init__()
 
-    def forward(x,dim):  # x:[64,64,11,11]
-
+    def forward(self, x):  # [64,21,5,5]
         cen = x.shape[2] // 2  # 5
-        x = rearrange(x, 'b c h w -> b h w c')  # [批次64，空间25，光谱64]
-        x_out = torch.zeros(x.shape[0], x.shape[1] * x.shape[2], x.shape[3]).cuda()
+        x = rearrange(x, 'b c h w -> b h w c')  # [64,5,5,21]
+        x_out = torch.zeros(x.shape[0], x.shape[1] * x.shape[2], x.shape[3]).cuda()  # [64,25,21]
+        # 把中心位置放在扫描后序列的开头，作为扫描启示
         x_out[:, 0, :] = x[:, cen, cen, :]
-        for i in range(cen):  # 层数 0~4
 
-            if i == 0:
-                # 第1层 2*4=8个
-                x_out[:, 1:3, :] = x[:, cen - 1, cen:cen + 2, :]
-                x_out[:, 3:5, :] = x[:, cen:cen + 2, cen + 1, :]
-                x_out[:, 5:7, :] = x[:, cen + 1, cen - 1:cen + 1, :]
-                x_out[:, 7:9, :] = x[:, cen - 1:cen + 1, cen - 1, :]
+        assignments_map = {
+            0: [
+                (slice(1, 3), (cen - 1, slice(cen, cen + 2))),
+                (slice(3, 5), (slice(cen, cen + 2), cen + 1)),
+                (slice(5, 7), (cen + 1, slice(cen - 1, cen + 1))),
+                (slice(7, 9), (slice(cen - 1, cen + 1), cen - 1)),
+            ],
+            1: [
+                (slice(9, 13), (cen - 2, slice(cen - 1, cen + 3))),
+                (slice(13, 17), (slice(cen - 1, cen + 3), cen + 2)),
+                (slice(17, 21), (cen + 2, slice(cen - 2, cen + 2))),
+                (slice(21, 25), (slice(cen - 2, cen + 2), cen - 2)),
+            ],
+            2: [
+                (slice(25, 31), (cen - 3, slice(cen - 2, cen + 4))),
+                (slice(31, 37), (slice(cen - 2, cen + 4), cen + 3)),
+                (slice(37, 43), (cen + 3, slice(cen - 3, cen + 3))),
+                (slice(43, 49), (slice(cen - 3, cen + 3), cen - 3)),
+            ],
+            3: [
+                (slice(49, 57), (cen - 4, slice(cen - 3, cen + 5))),
+                (slice(57, 65), (slice(cen - 3, cen + 5), cen + 4)),
+                (slice(65, 73), (cen + 4, slice(cen - 4, cen + 4))),
+                (slice(73, 81), (slice(cen - 4, cen + 4), cen - 4)),
+            ],
+            4: [
+                (slice(81, 91), (cen - 5, slice(cen - 4, cen + 6))),
+                (slice(91, 101), (slice(cen - 4, cen + 6), cen + 5)),
+                (slice(101, 111), (cen + 5, slice(cen - 5, cen + 5))),
+                (slice(111, 121), (slice(cen - 5, cen + 5), cen - 5)),
+            ],
+        }
 
-            if i == 1:
-                # 第2层 4*4=16个  4
-                x_out[:, 9:13, :] = x[:, cen - 2, cen - 1:cen + 3, :]
-                x_out[:, 13:17, :] = x[:, cen - 1:cen + 3, cen + 2, :]
-                x_out[:, 17:21, :] = x[:, cen + 2, cen - 2:cen + 2, :]
-                x_out[:, 21:25, :] = x[:, cen - 2:cen + 2, cen - 2, :]
-
-            if i == 2:
-                # 第3层 6*4=24个  6
-                x_out[:, 25:31, :] = x[:, cen - 3, cen - 2:cen + 4, :]
-                x_out[:, 31:37, :] = x[:, cen - 2:cen + 4, cen + 3, :]
-                x_out[:, 37:43, :] = x[:, cen + 3, cen - 3:cen + 3, :]
-                x_out[:, 43:49, :] = x[:, cen - 3:cen + 3, cen - 3, :]
-            if i == 3:
-                # 第4层 8*4=32个  8
-                x_out[:, 49:57, :] = x[:, cen - 4, cen - 3:cen + 5, :]
-                x_out[:, 57:65, :] = x[:, cen - 3:cen + 5, cen + 4, :]
-                x_out[:, 65:73, :] = x[:, cen + 4, cen - 4:cen + 4, :]
-                x_out[:, 73:81, :] = x[:, cen - 4:cen + 4, cen - 4, :]
-            if i == 4:
-                # 第5层 10*4=40个  10
-                x_out[:, 81:91, :] = x[:, cen - 5, cen - 4:cen + 6, :]
-                x_out[:, 91:101, :] = x[:, cen - 4:cen + 6, cen + 5, :]
-                x_out[:, 101:111, :] = x[:, cen + 5, cen - 5:cen + 5, :]
-                x_out[:, 111:121, :] = x[:, cen - 5:cen + 5, cen - 5, :]
+        for i in range(cen):
+            for dest, (row_idx, col_idx) in assignments_map.get(i, []):
+                x_out[:, dest, :] = x[:, row_idx, col_idx, :]
 
         return x_out
 
@@ -193,49 +201,47 @@ class STMambaBlock(nn.Module):
 
 
 class STMamba(nn.Module):
-    def __init__(self, in_channels=1, patch=15, dim=21, depth=1, mlp_dim=8, dropout=0.1, emb_dropout=0.1):
+    def __init__(self, input_channels=1, num_classes=21, depth=1, patch=9, mlp_dim=8, dropout=0.1, emb_dropout=0.1):
         super(STMamba, self).__init__()
-
+        self.dim = 3
         self.conv3d_features = nn.Sequential(
-            nn.Conv3d(in_channels, out_channels=8, kernel_size=(3, 3, 3)),
+            nn.Conv3d(1, out_channels=8, kernel_size=(3, 3, 3)),
             nn.BatchNorm3d(8),
             nn.ReLU(),
         )
 
         self.conv2d_features = nn.Sequential(
-            nn.Conv2d(in_channels=8 * 28, out_channels=dim, kernel_size=(3, 3)),
-            nn.BatchNorm2d(dim),
+            nn.Conv2d(in_channels=8 * (input_channels - 2), out_channels=num_classes, kernel_size=(3, 3)),
+            nn.BatchNorm2d(num_classes),
             nn.ReLU(),
         )
 
-        self.pos_embedding = nn.Parameter(torch.empty(1, ((patch - 4) ** 2 + 1), dim))
+        self.pos_embedding = nn.Parameter(torch.empty(1, ((patch - 4) ** 2 + 1), num_classes))
         torch.nn.init.uniform_(self.pos_embedding)  # , std=.02
 
-        self.cls_token = nn.Parameter(torch.zeros(1, 1, dim))
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, num_classes))
         self.dropout = nn.Dropout(emb_dropout)
-        self.scan = Scan(seq=(patch - 4) ** 2 + 1, dim=dim)
-        self.STMambaBlock = STMambaBlock((patch - 4) ** 2 + 1, dim, depth, mlp_dim, dropout)
+        self.scan = Scan()
+        self.STMambaBlock = STMambaBlock((patch - 4) ** 2 + 1, num_classes, depth, mlp_dim, dropout)
 
     def forward(self, x, mask=None):  # x:[64, 1, 30, 9, 9]
 
         x = self.conv3d_features(x)  # ->x:[64,8,28,7,7 ]
 
         x = rearrange(x, 'b c h w y -> b (c h) w y')  # 8个通道合一，增强光谱空间特征 -> [64,8*28,7,7]
-        x = self.conv2d_features(x)  # ->[64,(8*28)64,5,5] #2D 卷积提取空间特征
-        # x = rearrange(x,'b c h w -> b (h w) c') #[批次64，空间25，光谱64]
-        x = self.scan(x)
-        cls_tokens = self.cls_token.expand(x.shape[0], -1, -1)
-        # print('cls_tokens: ', cls_tokens.shape,'x: ',x.shape)
+        x = self.conv2d_features(x)  # ->[64,21,5,5]
+
+        x = self.scan(x)  # ->[64,p2,21]
+        cls_tokens = self.cls_token.expand(x.shape[0], -1, -1)  # ->[64,1,21]
+
         x = torch.cat((cls_tokens, x), dim=1)
         x += self.pos_embedding
         x = self.dropout(x)
 
-        x = self.STMambaBlock(x, mask)  # x_before [64, 5, 64]   x_after: [64, 5, 64]
-        # print('x_after: ', x.shape)
-        # x = self.to_cls_token(x[:, 0,:]) # -> x:[64,64] 没啥用 nn.identity
+        x = self.STMambaBlock(x, mask)
+
         if x.shape[0] == 16 or x.shape[0] == 21:
             x = x.unsqueeze(0)  # 最后一个批次只有一个数据
-        # print('x: ', x.shape)
 
         return x
 
@@ -244,16 +250,17 @@ if __name__ == "__main__":
     torch.manual_seed(42)
 
     # 设置模型参数
-    in_chans = 1  # 输入通道数
+    in_chans = 30  # 输入通道数
     embed_dim = 128  # 嵌入维度
     num_classes = 21  # 类别数量
-    patch = 15  # patch大小
+    patch = 9  # patch大小
     depth = 1  # STMambaBlock的深度
     mlp_dim = 8  # MLP隐藏层维度
     dropout = 0.1  # Dropout比率
 
     # 创建模型
-    model = STMamba(in_channels=in_chans, patch=patch, dim=num_classes, depth=depth, mlp_dim=mlp_dim, dropout=dropout)
+    model = STMamba(input_channels=in_chans, patch=patch, num_classes=num_classes, depth=depth, mlp_dim=mlp_dim,
+                    dropout=dropout)
 
     # 设置设备
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -261,11 +268,11 @@ if __name__ == "__main__":
     model = model.to(device)
 
     # 测试不同输入尺寸
-    test_sizes = [(5, 5), (7, 7), (9, 9)]  # 只测试大于卷积核大小的输入尺寸
+    test_sizes = [(9, 9)]
 
     for size in test_sizes:
         H, W = size
-        x = torch.randn(4, in_chans, 30, H, W).to(device)  # 假设输入是[batch_size, in_channels, seq_len, height, width]
+        x = torch.randn(4, 1, in_chans, H, W).to(device)  # 假设输入是[batch_size, in_channels, seq_len, height, width]
 
         try:
             with torch.no_grad():
