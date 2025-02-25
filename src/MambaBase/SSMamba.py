@@ -245,7 +245,7 @@ class SSMamba(nn.Module):
     """
 
     def __init__(self, input_channels, num_classes, embed_dim=128, depth=4, bi=True,
-                 norm_layer=nn.LayerNorm, fu=True):
+                 norm_layer=nn.LayerNorm, fu=True, patch_size=7):
         super().__init__()
 
         self.input_channels = input_channels

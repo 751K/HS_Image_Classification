@@ -11,6 +11,7 @@ class Residual(nn.Module):
     Args:
         fn (nn.Module): 需要应用残差连接的模块
     """
+
     def __init__(self, fn):
         super().__init__()
         self.fn = fn
@@ -35,6 +36,7 @@ class LayerNormalize(nn.Module):
         dim (int): 输入特征的维度
         fn (nn.Module): 需要应用层归一化的模块
     """
+
     def __init__(self, dim, fn):
         super().__init__()
         self.norm = nn.LayerNorm(dim)
@@ -61,6 +63,7 @@ class MLP_Block(nn.Module):
         hidden_dim (int): 隐藏层的维度
         dropout (float): dropout率，默认为0.1
     """
+
     def __init__(self, dim, hidden_dim, dropout=0.1):
         super().__init__()
         self.net = nn.Sequential(
@@ -146,6 +149,7 @@ class Transformer(nn.Module):
         mlp_dim (int): MLP中间层的维度
         dropout (float): dropout率
     """
+
     def __init__(self, dim, depth, heads, mlp_dim, dropout):
         super().__init__()
         self.layers = nn.ModuleList([])
@@ -185,8 +189,9 @@ class SSFTT(nn.Module):
         dropout (float): transformer中的dropout率。默认值: 0.1。
         emb_dropout (float): 嵌入层的dropout率。默认值: 0.1。
     """
+
     def __init__(self, input_channels: int = 200, num_classes: int = 16, num_tokens=4, hidden_dim=64, depth=1, heads=8,
-                 mlp_dim=8, dropout=0.1, emb_dropout=0.1):
+                 mlp_dim=8, dropout=0.1, emb_dropout=0.1, patch_size=5):
         super(SSFTT, self).__init__()
         self.L = num_tokens
         self.cT = hidden_dim

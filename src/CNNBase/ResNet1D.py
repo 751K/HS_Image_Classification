@@ -31,7 +31,7 @@ class ResidualBlock1D(nn.Module):
 
 
 class ResNet1D(nn.Module):
-    def __init__(self, input_channels: int, num_classes: int):
+    def __init__(self, input_channels: int, num_classes: int, patch_size=3):
         super(ResNet1D, self).__init__()
         self.input_channels = input_channels
         self.num_classes = num_classes

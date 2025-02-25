@@ -28,7 +28,8 @@ class SpatialAttention(nn.Module):
 
 
 class GCN2D(nn.Module):
-    def __init__(self, input_channels: int, num_classes: int, hidden_channels: int = 64, num_gcn_layers: int = 3):
+    def __init__(self, input_channels: int, num_classes: int, hidden_channels: int = 64, num_gcn_layers: int = 3,
+                 patch_size=7):
         super(GCN2D, self).__init__()
         self.input_channels = input_channels
         self.num_classes = num_classes

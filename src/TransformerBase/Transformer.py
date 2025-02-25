@@ -19,7 +19,7 @@ class PositionalEncoding(nn.Module):
 
 
 class Transformer(nn.Module):
-    def __init__(self, input_channels, num_classes, d_model=128, nhead=8, num_layers=3, dropout=0.1):
+    def __init__(self, input_channels, num_classes, d_model=128, nhead=8, num_layers=3, dropout=0.1, patch_size=5):
         super(Transformer, self).__init__()
 
         self.model_type = 'Transformer'

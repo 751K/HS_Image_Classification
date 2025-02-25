@@ -214,7 +214,7 @@ class BothMamba(nn.Module):
 
 class MambaHSI(nn.Module):
     def __init__(self, input_channels=128, num_classes=10, hidden_dim=64, use_residual=True, mamba_type='both',
-                 token_num=4, group_num=4, use_att=True):
+                 token_num=4, group_num=4, use_att=True, patch_size=7):
         super(MambaHSI, self).__init__()
         self.dim = 2
         self.mamba_type = mamba_type
@@ -255,6 +255,7 @@ class MambaHSI(nn.Module):
         model_input = self.cls_head(model_input)
         model_input = self.global_avg_pool(model_input)
         return model_input.view(model_input.size(0), -1)  # 将输出展平为 (batch, num_classes)
+
 
 # 测试代码
 if __name__ == "__main__":

@@ -194,7 +194,7 @@ class STMambaBlock(nn.Module):
 
 
 class STMamba(nn.Module):
-    def __init__(self, input_channels=1, num_classes=21, depth=1, patch=9, mlp_dim=8, dropout=0.1, emb_dropout=0.1):
+    def __init__(self, input_channels=1, num_classes=21, depth=1, patch_size=9, mlp_dim=8, dropout=0.1, emb_dropout=0.1):
         super(STMamba, self).__init__()
         self.dim = 3
         self.conv3d_features = nn.Sequential(
@@ -209,12 +209,12 @@ class STMamba(nn.Module):
             nn.ReLU(),
         )
 
-        self.pos_embedding = torch.nn.init.uniform_(nn.Parameter(torch.empty(1, (patch ** 2 + 1), num_classes)))
+        self.pos_embedding = torch.nn.init.uniform_(nn.Parameter(torch.empty(1, (patch_size ** 2 + 1), num_classes)))
 
         self.cls_token = nn.Parameter(torch.zeros(1, 1, num_classes))
         self.dropout = nn.Dropout(emb_dropout)
         self.scan = Scan()
-        self.STMambaBlock = STMambaBlock(patch ** 2 + 1, num_classes, depth, mlp_dim, dropout)
+        self.STMambaBlock = STMambaBlock(patch_size ** 2 + 1, num_classes, depth, mlp_dim, dropout)
 
     def forward(self, input_data):  # x:[64, 1, 30, 9, 9]
 
@@ -251,7 +251,7 @@ if __name__ == "__main__":
     dropout = 0.1  # Dropout比率
 
     # 创建模型
-    model = STMamba(input_channels=in_chans, patch=patch, num_classes=num_classes, depth=depth, mlp_dim=mlp_dim,
+    model = STMamba(input_channels=in_chans, patch_size=patch, num_classes=num_classes, depth=depth, mlp_dim=mlp_dim,
                     dropout=dropout)
 
     # 设置设备

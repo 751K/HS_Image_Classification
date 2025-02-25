@@ -262,7 +262,7 @@ class SpectralSpatialBlock(nn.Module):
 
 class MSAFMamba(nn.Module):
     def __init__(self, input_channels, num_classes, embed_dim=128, depth=5,
-                 fu=True, spectral_kernels=None, spatial_kernels=None):
+                 fu=True, spectral_kernels=None, spatial_kernels=None, patch_size=7):
         super().__init__()
         self.dim = 2
 

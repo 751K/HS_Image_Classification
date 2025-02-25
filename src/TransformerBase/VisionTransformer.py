@@ -35,7 +35,7 @@ class TransformerEncoder(nn.Module):
 
 class VisionTransformer(nn.Module):
     def __init__(self, input_channels, num_classes, embed_dim=64, depth=6, num_heads=8, mlp_ratio=4., qkv_bias=False,
-                 dropout=0.1):
+                 dropout=0.1, patch_size=3):
         super().__init__()
         self.patch_embed = PatchEmbedding(input_channels, embed_dim)
         self.dim = 2

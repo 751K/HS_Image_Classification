@@ -32,7 +32,7 @@ class ResidualBlock2D(nn.Module):
 
 
 class ResNet2D(nn.Module):
-    def __init__(self, input_channels: int = 200, num_classes: int = 16):
+    def __init__(self, input_channels: int = 200, num_classes: int = 16, patch_size: int = 3):
         super(ResNet2D, self).__init__()
         self.input_channels = input_channels
         self.num_classes = num_classes

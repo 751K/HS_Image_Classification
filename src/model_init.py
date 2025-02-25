@@ -41,7 +41,7 @@ def init_weights(m):
         nn.init.constant_(m.bias, 0)
 
 
-def create_model(model_name, input_channels, num_classes):
-    model = get_model(model_name, input_channels=input_channels, num_classes=num_classes)
+def create_model(model_name, input_channels, num_classes, patch_size=3):
+    model = get_model(model_name, input_channels=input_channels, num_classes=num_classes, patch_size=patch_size)
     model.apply(init_weights)
     return model

@@ -50,7 +50,7 @@ def main():
         input_channels = data.shape[-1]
 
         # 创建模型
-        model = create_model(config.model_name, input_channels, num_classes)
+        model = create_model(config.model_name, input_channels, num_classes, config.patch_size)
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         model.to(device)
 

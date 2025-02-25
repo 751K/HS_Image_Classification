@@ -36,7 +36,7 @@ class SwimTransformerBlock(nn.Module):
 
 class SwimTransformer(nn.Module):
     def __init__(self, input_channels, num_classes, embed_dim=64, depth=6, num_heads=8, mlp_ratio=4.,
-                 qkv_bias=False, dropout=0.1):
+                 qkv_bias=False, dropout=0.1, patch_size=3):
         super().__init__()
         self.dim = 2
         self.patch_embed = nn.Conv2d(input_channels, embed_dim, kernel_size=1, stride=1)

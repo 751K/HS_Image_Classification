@@ -10,7 +10,7 @@ class LeeEtAl3D(nn.Module):
     LeeEtAl3D 模型实现。
     """
 
-    def __init__(self, input_channels: int, num_classes: int):
+    def __init__(self, input_channels: int, num_classes: int, patch_size=3):
         """
         初始化 LeeEtAl3D 模型。
 

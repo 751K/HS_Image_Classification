@@ -16,7 +16,8 @@ if __name__ == "__main__":
     config = Config()
     # 创建模型
     data, _ = spectral_pca_reduction(data, n_components=config.n_components)
-    model = create_model(config.model_name, input_channels=data.shape[-1], num_classes=len(np.unique(labels)))
+    model = create_model(config.model_name, input_channels=data.shape[-1], num_classes=len(np.unique(labels)),
+                         patch_size=config.patch_size)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
