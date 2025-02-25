@@ -5,7 +5,6 @@ import time
 
 def run_main_with_input(input_value):
     try:
-        # 假设你的 main 文件名为 main.py
         process = subprocess.Popen([sys.executable, 'main.py'],
                                    stdin=subprocess.PIPE,
                                    stdout=subprocess.PIPE,
@@ -40,7 +39,7 @@ def run_main_with_input(input_value):
 
 # 主执行逻辑
 if __name__ == "__main__":
-    for model_number in range(1, 13):  # 从1到12
+    for model_number in range(1, 16):  # 从1到12
         print(f"\n开始执行模型 {model_number}")
         run_main_with_input(model_number)
         print(f"模型 {model_number} 执行完成\n")

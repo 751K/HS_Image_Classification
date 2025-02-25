@@ -10,21 +10,21 @@ class HybridSN(nn.Module):
         self.patch_size = patch_size
         self.in_chs = input_channels
         self.conv1 = nn.Sequential(
-            nn.Conv3d(in_channels=1, out_channels=8, kernel_size=(7, 3, 3)),
+            nn.Conv3d(in_channels=1, out_channels=8, kernel_size=(7, 3, 3), padding=(3, 1, 1)),
             nn.ReLU(inplace=True))
 
         self.conv2 = nn.Sequential(
-            nn.Conv3d(in_channels=8, out_channels=16, kernel_size=(5, 3, 3)),
+            nn.Conv3d(in_channels=8, out_channels=16, kernel_size=(5, 3, 3), padding=(2, 1, 1)),
             nn.ReLU(inplace=True))
 
         self.conv3 = nn.Sequential(
-            nn.Conv3d(in_channels=16, out_channels=32, kernel_size=(3, 3, 3)),
+            nn.Conv3d(in_channels=16, out_channels=32, kernel_size=(3, 3, 3), padding=(1, 1, 1)),
             nn.ReLU(inplace=True))
 
         self.x1_shape = self.get_shape_after_3dconv()
-        # print(self.x1_shape)
         self.conv4 = nn.Sequential(
-            nn.Conv2d(in_channels=self.x1_shape[1] * self.x1_shape[2], out_channels=64, kernel_size=(3, 3)),
+            nn.Conv2d(in_channels=self.x1_shape[1] * self.x1_shape[2], out_channels=64, kernel_size=(3, 3),
+                      padding=(1, 1)),
             nn.ReLU(inplace=True))
         self.x2_shape = self.get_shape_after_2dconv()
 
@@ -99,13 +99,12 @@ if __name__ == "__main__":
     print(f"Using device: {device}")
 
     # 测试不同输入尺寸
-    test_sizes = [(19, 19)]
-    model = HybridSN(input_channels=in_chans, num_classes=num_classes, patch_size=19)
-    model = model.to(device)
+    test_sizes = [(7, 7), (14, 14), (28, 28)]
 
     for size in test_sizes:
         x = torch.randn(batch_size, in_chans, size[0], size[1]).to(device)
-
+        model = HybridSN(input_channels=in_chans, num_classes=num_classes, patch_size=size[0])
+        model = model.to(device)
         try:
             with torch.no_grad():
                 output = model(x)
@@ -113,9 +112,11 @@ if __name__ == "__main__":
             print(f"Input shape: {x.shape}")
             print(f"Output shape: {output.shape}")
 
+            # 计算并打印模型参数总数
+            total_params = sum(p.numel() for p in model.parameters())
+            print(f"Total parameters: {total_params}")
+
         except Exception as e:
             print(f"An error occurred for input size {size}: {e}\n")
 
-    # 计算并打印模型参数总数
-    total_params = sum(p.numel() for p in model.parameters())
-    print(f"Total parameters: {total_params}")
+
