@@ -11,19 +11,26 @@
 
 ## 模型类型及路径
 
-| 模型名称              | 类型                   | 路径                                      |
-|-------------------|----------------------|-----------------------------------------|
-| ResNet1D          | CNN                  | `src.CNNBase.ResNet1D`                  |
-| ResNet2D          | CNN                  | `src.CNNBase.ResNet2D`                  |
-| ResNet3D          | CNN                  | `src.CNNBase.ResNet3D`                  |
-| SwimTransformer   | Transformer          | `src.TransformerBase.SwimTransformer`   |
-| VisionTransformer | Transformer          | `src.TransformerBase.VisionTransformer` |
-| SSMamba           | Mamba                | `src.MambaBase.SSMamba`                 |
-| MambaHSI          | Mamba                | `src.MambaBase.MambaHSI`                |
-| LeeEtAl3D         | CNN                  | `src.CNNBase.LeeEtAl3D`                 |
-| MSAFMamba         | Mamba                | `src.MambaBase.MSAFMamba`               |
-| SSFTT             | Transformer          | `src.TransformerBase.SSFTT`             |
-| GCN2D             | Graph Neural Network | `src.CNNBase.GCN2D`                     |
+| 模型名称              | 类型          | 路径                                      |
+|-------------------|-------------|-----------------------------------------|
+| ResNet1D          | CNN         | `src.CNNBase.ResNet1D`                  |
+| ResNet2D          | CNN         | `src.CNNBase.ResNet2D`                  |
+| ResNet3D          | CNN         | `src.CNNBase.ResNet3D`                  |
+| HybridSN          | CNN         | `src.CNNBase.HybridSN`                  |
+| LeeEtAl3D         | CNN         | `src.CNNBase.LeeEtAl3D`                 |
+| GCM2D             | GCN         | `src.CNNBase.GCN2D`                     |
+| SSFTT             | Transformer | `src.TransformerBase.SSFTT`             |
+| SwimTransformer   | Transformer | `src.TransformerBase.SwimTransformer`   |
+| VisionTransformer | Transformer | `src.TransformerBase.VisionTransformer` |
+| SFT               | Transformer | `src.TransformerBase.SFT`               |
+| SSMamba           | Mamba       | `src.MambaBase.SSMamba`                 |
+| MambaHSI          | Mamba       | `src.MambaBase.MambaHSI`                |
+| STMamba           | Mamba       | `src.MambaBase.STMamba`                 |
+| SSMamba           | Mamba       | `src.MambaBase.SSMamba`                 |
+| MSAFMamba         | Mamba       | `src.MambaBase.MSAFMamba`               |
+
+
+
 
 ## 使用说明
 
@@ -53,6 +60,6 @@
 
 ## 运行环境
 由于代码中引入了Mamba模型，代码在Windows环境下使用WSL2运行，WSL2具体安装方法请参考[WSL2安装教程](https://docs.microsoft.com/zh-cn/windows/wsl/install)。
-- pytorch:2.10
+- pytorch:2.22
 - python:3.12
 - CUDA:11.8
