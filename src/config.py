@@ -19,9 +19,9 @@ class Config:
 
         if caller_filename == 'main.py' and self.test_mode is not True:
             self.model_name = self.select_model()
-            self.num_epochs = 100
+            self.num_epochs = 20
         else:
-            self.model_name = 'MSAFMamba'
+            self.model_name = 'AllinMamba'
             self.num_epochs = 100
             # torch.autograd.set_detect_anomaly = True
 
@@ -30,19 +30,19 @@ class Config:
         self.warmup_steps = 10
         self.learning_rate = 0.0003
 
-        self.test_size = 0.8
-        self.val_size = 0.15
+        self.test_size = 0.95
 
         self.seed = 42
         self.datasets = 'Salinas'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana'
-        self.patch_size = 5
-        # self.resume_checkpoint = '../results/LeeEtAl3D_0112_134402/checkpoint_epoch_40.pth'
+        self.patch_size = 9
+
+        # self.resume_checkpoint = '../results/Salinas_AllinMamba_0226_1559/checkpoint_epoch_100.pth'
         self.resume_checkpoint = None
 
         # 降维相关配置
         self.perform_dim_reduction = True
         self.dim_reduction = 'PCA'  # 可选: 'PCA', 'KernelPCA', 'MDS', 'UMAP'，‘NMF’
-        self.n_components = 30  # 降维后的组件数
+        self.n_components = 100  # 降维后的组件数
         self.pca_whiten = False
         self.kpca_kernel = 'rbf'
         self.kpca_gamma = None
@@ -53,7 +53,7 @@ class Config:
 
         self.stop_train = True
         self.patience = 10  # 早停的耐心值
-        self.min_delta = 0.0005  # 被视为改进的最小变化量
+        self.min_delta = 0.005  # 被视为改进的最小变化量
         if caller_filename == 'main.py':
             self.save_dir = os.path.join("..", "results",
                                          f"{self.datasets}_{self.model_name}_{datetime.now().strftime('%m%d_%H%M')}")

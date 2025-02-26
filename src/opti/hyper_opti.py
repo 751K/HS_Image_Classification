@@ -159,13 +159,13 @@ def objective(trial: Trial, config, logger, data, labels, num_classes, input_cha
     model.to(device)
 
     # 数据准备
-    X_train, y_train, X_val, y_val, _, _ = prepare_data(data, labels, dim=model.dim, patch_size=patch_size)
+    X_train, y_train, X_test, y_test = prepare_data(data, labels, dim=model.dim, patch_size=patch_size)
     logger.info(
-        f"准备的数据集形状: X_train: {X_train.shape}, y_train: {y_train.shape}, X_val: {X_val.shape}, y_val: {y_val.shape}")
+        f"准备的数据集形状: X_train: {X_train.shape}, y_train: {y_train.shape}, X_test: {X_test.shape}, y_test: {y_test.shape}")
 
     # 创建训练和验证数据加载器
     train_loader, val_loader = create_data_loaders_for_optimization(
-        X_train, y_train, X_val, y_val, batch_size, config.num_workers,
+        X_train, y_train, X_test, y_test, batch_size, config.num_workers,
         dim=model.dim, logger=logger
     )
 

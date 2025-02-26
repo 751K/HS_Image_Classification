@@ -57,13 +57,14 @@ def main():
         logger.info(f"模型创建完成：{config.model_name}")
 
         # 准备数据
-        X_train, y_train, X_val, y_val, X_test, y_test = prepare_data(data, labels, test_size=config.test_size,
-                                                                      val_size=config.val_size,
-                                                                      dim=model.dim, patch_size=config.patch_size)
-        logger.info(f"训练集大小: {X_train.shape}")
+        X_train, y_train, X_test, y_test = prepare_data(data, labels, test_size=config.test_size,
+                                                        dim=model.dim, patch_size=config.patch_size,
+                                                        random_state=config.seed)
+        logger.info(f"训练集尺寸: {X_train.shape}")
+        logger.info(f"测试集尺寸: {X_test.shape}")
         logger.info("数据预处理完成")
-        train_loader, val_loader, test_loader = create_data_loaders(
-            X_train, y_train, X_val, y_val, X_test, y_test, config.batch_size, config.num_workers,
+        train_loader, test_loader = create_data_loaders(
+            X_train, y_train, X_test, y_test, config.batch_size, config.num_workers,
             dim=model.dim, logger=logger
         )
         logger.info("Dataloader创建完成")
@@ -92,12 +93,12 @@ def main():
 
         # 训练模型
         logger.info("开始训练模型...")
-        best_model_state_dict = train_model(model, train_loader, val_loader, criterion, optimizer, scheduler,
+        best_model_state_dict = train_model(model, train_loader, test_loader, criterion, optimizer, scheduler,
                                             config.num_epochs, device, writer, logger, start_epoch, config)
         logger.info("模型训练完成")
         # 保存最佳模型
         model_save_path = os.path.join(config.save_dir, "best_model.pth")
-        save_model(best_model_state_dict, model_save_path)
+        save_model(best_model_state_dict, model_save_path, logger)
         logger.info(f"最佳模型已保存到: {model_save_path}")
 
         # 评估模型
@@ -108,12 +109,13 @@ def main():
 
         # 保存结果和生成可视化
         results_save_path = os.path.join(config.save_dir, "test_results.json")
-        save_test_results(all_preds, all_labels, accuracy, avg_loss, results_save_path)
+        save_test_results(all_preds, all_labels, accuracy, avg_loss, results_save_path, logger)
 
         confusion_matrix_save_path = os.path.join(config.save_dir, "confusion_matrix.png")
         plot_and_save_confusion_matrix(all_labels, all_preds, num_classes, confusion_matrix_save_path)
         visualize_save_path = os.path.join(config.save_dir, "visualization.png")
-        visualize_classification(model, data, labels, device, config, dataset_info, save_path=visualize_save_path)
+        visualize_classification(model, data, labels, device, config, dataset_info, logger,
+                                 save_path=visualize_save_path)
         writer.close()
         logger.info("程序执行完毕")
 

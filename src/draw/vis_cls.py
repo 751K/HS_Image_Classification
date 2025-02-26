@@ -4,13 +4,16 @@ from datetime import datetime
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
+from sklearn.metrics import accuracy_score
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from src.datesets.Dataset import create_patches
+from Train_and_Eval.eval import evaluate_model
+from datesets.Dataset import prepare_data, HSIDataset
 from matplotlib.patches import Patch
 
 
-def visualize_classification(model, data, labels, device, config, class_names, save_path=None):
+def visualize_classification(model, data, labels, device, config, class_names, logger=None, save_path=None):
     """
     对原始数据进行逐像素分类并生成可视化图。
 
@@ -21,53 +24,49 @@ def visualize_classification(model, data, labels, device, config, class_names, s
         device (torch.device): 用于计算的设备（CPU或GPU）
         config (Config): 配置对象
         class_names (list): 类别名称列表
+        logger (logging.Logger): 日志记录器
+        save_path (str, optional): 保存可视化图的路径。如果为 None，则使用默认路径保存
 
-    Returns:
-        np.ndarray: 分类结果图，形状为 (height, width)
     """
     model.eval()
+
     height, width, channels = data.shape
     # data:Original data shape: (512, 217, 80)
-    if model.dim == 1:
-        rows, cols, bands, = data.shape
-        y = labels.flatten()
-        valid_pixels = y != 0
-        X = data.reshape(-1, bands)
-        X = X[valid_pixels]
+    X, y, _, _ = prepare_data(data, labels, test_size=1, dim=model.dim, patch_size=config.patch_size)
+    all_dataset = HSIDataset(X, y, model.dim)
+    all_dataloader = DataLoader(all_dataset, batch_size=config.batch_size, shuffle=False, num_workers=0)
 
-    else:  # dim == 2 or dim == 3
-        patches, _ = create_patches(data, labels, config.patch_size)
-        if model.dim == 2:
-            X = patches.reshape(patches.shape[0], patches.shape[1], config.patch_size, config.patch_size)
-        else:  # dim == 3
-            X = patches.reshape(patches.shape[0], 1, patches.shape[1], config.patch_size, config.patch_size)
+    all_preds = []
 
-    # 逐批次进行预测
-    batch_size = config.batch_size
-    predictions = []
+    if logger is not None:
+        logger.info("开始全图推理")
+    else:
+        print("开始全图推理")
+
     with torch.no_grad():
-        for i in tqdm(range(0, len(X), batch_size), desc="Classifying pixels"):
-            batch = torch.FloatTensor(X[i:i + batch_size]).to(device)
-            outputs = model(batch)
-            _, preds = torch.max(outputs, 1)
-            predictions.extend(preds.cpu().numpy())
+        for inputs, batch_labels in all_dataloader:
+            inputs = inputs.to(device)
+            outputs = model(inputs)
 
-    # 重塑预测结果
+            _, predicted = torch.max(outputs.data, 1)
+            all_preds.extend(predicted.cpu().numpy())
+
+    # 转换为 numpy 数组
+    all_preds = np.array(all_preds)
+
+    # 重塑预测结果到原始图像尺寸
     classification_map = np.zeros((height, width), dtype=int)
     index = 0
     for i in range(height):
         for j in range(width):
-            if labels[i, j] != 0:  # 只对非背景像素进行预测
-                classification_map[i, j] = predictions[index]
+            if labels[i, j] != 0:
+                classification_map[i, j] = all_preds[index]
                 index += 1
 
     # 创建颜色映射
     unique_labels = np.unique(labels)
     num_classes = len(unique_labels)
     colors = plt.cm.jet(np.linspace(0, 1, num_classes))
-
-    # 创建分类结果的彩色图
-    rgb_image = colors[classification_map]
 
     # 可视化
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 7))
@@ -109,7 +108,11 @@ def visualize_classification(model, data, labels, device, config, class_names, s
     # 计算准确率
     mask = labels != 0  # 假设 0 是背景类
     accuracy = np.mean(classification_map[mask] == labels[mask])
-    print(f"Classification accuracy: {accuracy:.4f}")
+
+    if logger is not None:
+        logger.info(f"Classification accuracy: {accuracy:.4f}")
+    else:
+        print(f"Classification accuracy: {accuracy:.4f}")
 
 
 def get_project_root():

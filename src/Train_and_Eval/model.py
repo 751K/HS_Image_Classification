@@ -23,19 +23,20 @@ def set_seed(seed):
     torch.backends.cudnn.benchmark = False
 
 
-def save_model(state_dict, path):
+def save_model(state_dict, path,logger):
     """
     保存模型的状态字典。
 
     Args:
         state_dict (dict): 模型的状态字典。
         path (str): 保存路径。
+        logger: logger
     """
     torch.save(state_dict, path)
-    print(f"Model state_dict saved to {path}")
+    logger.info(f"Model state_dict saved to {path}")
 
 
-def save_test_results(all_preds, all_labels, accuracy, classification_report, path):
+def save_test_results(all_preds, all_labels, accuracy, classification_report, path, logger):
     """
     保存测试结果。
 
@@ -45,6 +46,7 @@ def save_test_results(all_preds, all_labels, accuracy, classification_report, pa
         accuracy (float): 测试准确率。
         classification_report (str): 分类报告。
         path (str): 保存路径。
+        logger: logger
     """
 
     def convert(o):
@@ -69,4 +71,4 @@ def save_test_results(all_preds, all_labels, accuracy, classification_report, pa
     with open(path, 'w') as f:
         json.dump(results, f, indent=4, default=convert)
 
-    print(f"Test results saved to {path}")
+    logger.info(f"Test results saved to {path}")

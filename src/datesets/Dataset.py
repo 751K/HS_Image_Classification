@@ -58,66 +58,57 @@ def reshape_data_1D(data, labels):
     return X, y
 
 
-def prepare_data(data, labels, test_size=0.65, val_size=0.05, random_state=42, dim=1, patch_size=5):
+def prepare_data(data, labels, test_size=0.95, random_state=42, dim=1, patch_size=5):
     if dim not in [1, 2, 3]:
         raise ValueError("Dim must be 1, 2, or 3")
 
     if dim == 1:
         X, y = reshape_data_1D(data, labels)
 
-    else:  # dim == 2 or dim == 3
+    else:
         # patch: (num_patches, bands, patch_size, patch_size)
         patches, patch_labels = create_patches(data, labels, patch_size)
         if dim == 2:
-            X = patches.reshape(patches.shape[0], patches.shape[1], patch_size, patch_size)
-        else:  # dim == 3
+            X = patches
+        else:
             X = patches.reshape(patches.shape[0], 1, patches.shape[1], patch_size, patch_size)
         y = patch_labels
 
-    train_data, train_label, val_data, val_label, test_data, test_label = (
-        optimized_split(X, y, test_size=test_size, val_size=val_size, random_state=random_state))
-
-    return train_data, train_label, val_data, val_label, test_data, test_label
-
-
-def optimized_split(data, labels, test_size=0.65, val_size=0.05, random_state=42):
-    train_size = 1 - test_size - val_size
-    train_data, temp_data, train_labels, temp_labels = None, None, None, None
-    val_data, val_labels, test_data, test_labels = None, None, None, None
-
-    sss = StratifiedShuffleSplit(n_splits=1, test_size=1 - train_size, random_state=random_state)
-
-    for train_indices, temp_indices in sss.split(data, labels):
-        train_data, temp_data = data[train_indices], data[temp_indices]
-        train_labels, temp_labels = labels[train_indices], labels[temp_indices]
-
-    val_ratio = val_size / (test_size + val_size)
-
-    sss_val = StratifiedShuffleSplit(n_splits=1, test_size=1 - val_ratio, random_state=random_state)
-
-    for val_indices, test_indices in sss_val.split(temp_data, temp_labels):
-        val_data, test_data = temp_data[val_indices], temp_data[test_indices]
-        val_labels, test_labels = temp_labels[val_indices], temp_labels[test_indices]
-
-    return train_data, train_labels, val_data, val_labels, test_data, test_labels
+    if test_size == 1:
+        return X, y, None, None
+    else:
+        train_data, train_label, test_data, test_label = (
+            optimized_split(X, y, test_size=test_size, random_state=random_state))
+        return train_data, train_label, test_data, test_label
 
 
-def create_data_loaders(X_train, y_train, X_val, y_val, X_test, y_test, batch_size, num_workers, dim=1, logger=None):
+def optimized_split(data, labels, test_size=0.95, random_state=42):
+    train_data, test_data, train_labels, test_labels = None, None, None, None
+
+    sss = StratifiedShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
+
+    for train_indices, test_indices in sss.split(data, labels):
+        train_data, test_data = data[train_indices], data[test_indices]
+        train_labels, test_labels = labels[train_indices], labels[test_indices]
+
+    return train_data, train_labels, test_data, test_labels
+
+
+def create_data_loaders(X_train, y_train, X_test, y_test, batch_size, num_workers, dim=1, logger=None):
     train_dataset = HSIDataset(X_train, y_train, dim)
-    val_dataset = HSIDataset(X_val, y_val, dim)
     test_dataset = HSIDataset(X_test, y_test, dim)
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
     try:
         inputs, input_labels = next(iter(train_dataloader))
-        logger.info(f"Inputs shape: {inputs.shape}")
-        logger.info(f"Labels shape: {input_labels.shape}")
+        if logger is not None:
+            logger.info(f"Inputs shape: {inputs.shape}")
+            logger.info(f"Labels shape: {input_labels.shape}")
     except Exception as e:
         logger.error(f"An error occurred while checking the data loaders: {e}")
-    return train_dataloader, val_dataloader, test_dataloader
+    return train_dataloader, test_dataloader
 
 
 # 使用示例
@@ -126,12 +117,12 @@ if __name__ == "__main__":
     data = np.random.rand(145, 145, 200)  # 示例数据
     labels = np.random.randint(0, 10, (145, 145))  # 示例标签
 
-    X_train, y_train, X_val, y_val, X_test, y_test = prepare_data(data, labels, dim=1)
+    X_train, y_train, X_test, y_test = prepare_data(data, labels, dim=3)
 
     print(f"X_train shape: {X_train.shape}")
     print(f"y_train shape: {y_train.shape}")
 
-    train_loader, val_loader, test_loader = create_data_loaders(
-        X_train, y_train, X_val, y_val, X_test, y_test,
-        batch_size=32, num_workers=4, dim=1
+    train_loader, test_loader = create_data_loaders(
+        X_train, y_train, X_test, y_test,
+        batch_size=32, num_workers=4, dim=3
     )

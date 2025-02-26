@@ -124,6 +124,7 @@ class SVMHSI:
 
         return classification_map
 
+
 if __name__ == '__main__':
     # 加载数据集
     print("Loading dataset...")
@@ -131,8 +132,8 @@ if __name__ == '__main__':
 
     # 准备数据
     print("Preparing data...")
-    X_train, y_train, X_val, y_val, X_test, y_test = prepare_data(
-        data, labels, test_size=0.65, val_size=0.05, random_state=42,
+    X_train, y_train, X_test, y_test = prepare_data(
+        data, labels, test_size=0.65, random_state=42,
         dim=3, patch_size=5
     )
 
@@ -144,17 +145,12 @@ if __name__ == '__main__':
     print("Evaluating on training set...")
     train_accuracy, train_report = svm_model.evaluate(X_train, y_train)
     print("Evaluating on validation set...")
-    val_accuracy, val_report = svm_model.evaluate(X_val, y_val)
     print("Evaluating on test set...")
     test_accuracy, test_report = svm_model.evaluate(X_test, y_test)
 
     print(f"\nTraining Accuracy: {train_accuracy}")
     print("Training Classification Report:")
     print(train_report)
-
-    print(f"\nValidation Accuracy: {val_accuracy}")
-    print("Validation Classification Report:")
-    print(val_report)
 
     print(f"\nTest Accuracy: {test_accuracy}")
     print("Test Classification Report:")

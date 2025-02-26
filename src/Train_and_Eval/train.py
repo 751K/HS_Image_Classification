@@ -63,19 +63,19 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
         epoch_loss = running_loss / len(train_loader.dataset)
         epoch_acc = correct / total
 
-        val_loss, metrix, _, _ = evaluate_model(model, val_loader, criterion, device, logger, class_result=False)
-        val_accuracy, aa, kappa = metrix
+        test_loss, metrix, _, _ = evaluate_model(model, val_loader, criterion, device, logger, class_result=False)
+        test_accuracy, aa, kappa = metrix
         
         writer.add_scalar('Loss/train', epoch_loss, epoch)
         writer.add_scalar('Accuracy/train', epoch_acc, epoch)
-        writer.add_scalar('Loss/val', val_loss, epoch)
-        writer.add_scalar('Accuracy/val', val_accuracy, epoch)
+        writer.add_scalar('Loss/val', test_loss, epoch)
+        writer.add_scalar('Accuracy/val', test_accuracy, epoch)
 
         logger.info('Epoch [%d/%d], Train Loss: %.4f, Train Acc: %.4f, Val Loss: %.4f, Val Acc: %.4f',
-                    epoch + 1, num_epochs, epoch_loss, epoch_acc, val_loss, val_accuracy)
+                    epoch + 1, num_epochs, epoch_loss, epoch_acc, test_loss, test_accuracy)
 
-        if val_accuracy > best_val_accuracy + min_delta:
-            best_val_accuracy = val_accuracy
+        if test_accuracy > best_val_accuracy + min_delta:
+            best_val_accuracy = test_accuracy
             best_model = model.state_dict()
             last_best_epoch = epoch
             patience_counter = 0

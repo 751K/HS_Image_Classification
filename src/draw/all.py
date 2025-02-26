@@ -158,8 +158,8 @@ def inference(model, inference_data, gt_labels, inference_device, inference_conf
 
     if model.dim == 1:
         X, _ = reshape_data_1D(inference_data, gt_labels)
-    else:  # dim == 2 or dim == 3
-        patches, _ = create_patches(inference_data, gt_labels, inference_config.patch_size)
+    else:
+        patches, patch_labels = create_patches(inference_data, gt_labels, inference_config.patch_size)
         if model.dim == 2:
             X = patches.reshape(patches.shape[0], patches.shape[1], inference_config.patch_size,
                                 inference_config.patch_size)

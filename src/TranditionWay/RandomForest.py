@@ -69,12 +69,12 @@ class RandomForestHSI:
         report = classification_report(y, y_pred)
         return accuracy, report
 
-if __name__ == '__main__':
 
+if __name__ == '__main__':
     data, labels, dataset_info = load_dataset('Pavia')
     # 准备数据
-    X_train, y_train, X_val, y_val, X_test, y_test = prepare_data(
-        data, labels, test_size=0.65, val_size=0.05, random_state=42,
+    X_train, y_train, X_test, y_test = prepare_data(
+        data, labels, test_size=0.95, random_state=42,
         dim=3, patch_size=5
     )
 
@@ -84,16 +84,13 @@ if __name__ == '__main__':
 
     # 评估模型
     train_accuracy, train_report = rf_model.evaluate(X_train, y_train)
-    val_accuracy, val_report = rf_model.evaluate(X_val, y_val)
     test_accuracy, test_report = rf_model.evaluate(X_test, y_test)
 
     print(f"Training Accuracy: {train_accuracy}")
     print("Training Classification Report:")
     print(train_report)
 
-    print(f"Validation Accuracy: {val_accuracy}")
     print("Validation Classification Report:")
-    print(val_report)
 
     print(f"Test Accuracy: {test_accuracy}")
     print("Test Classification Report:")

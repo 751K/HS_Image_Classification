@@ -1,5 +1,6 @@
 import os
 
+from Dim.api import apply_dimension_reduction
 from src.Dim.PCA import spectral_pca_reduction
 from src.config import Config
 
@@ -11,11 +12,12 @@ from src.draw.vis_cls import visualize_classification
 from src.model_init import create_model
 
 if __name__ == "__main__":
-    # 加载数据集
-    data, labels, dataset_info = load_dataset('Pavia')
     config = Config()
+    # 加载数据集
+    data, labels, dataset_info = load_dataset('Salinas')
     # 创建模型
     data, _ = spectral_pca_reduction(data, n_components=config.n_components)
+
     model = create_model(config.model_name, input_channels=data.shape[-1], num_classes=len(np.unique(labels)),
                          patch_size=config.patch_size)
 

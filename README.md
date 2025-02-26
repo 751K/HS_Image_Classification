@@ -18,7 +18,7 @@
 | ResNet3D          | CNN         | `src.CNNBase.ResNet3D`                  |
 | HybridSN          | CNN         | `src.CNNBase.HybridSN`                  |
 | LeeEtAl3D         | CNN         | `src.CNNBase.LeeEtAl3D`                 |
-| GCM2D             | GCN         | `src.CNNBase.GCN2D`                     |
+| GCN2D             | GCN         | `src.CNNBase.GCN2D`                     |
 | SSFTT             | Transformer | `src.TransformerBase.SSFTT`             |
 | SwimTransformer   | Transformer | `src.TransformerBase.SwimTransformer`   |
 | VisionTransformer | Transformer | `src.TransformerBase.VisionTransformer` |

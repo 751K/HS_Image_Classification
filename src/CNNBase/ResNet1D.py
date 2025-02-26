@@ -89,7 +89,7 @@ if __name__ == '__main__':
     labels = np.random.randint(0, num_classes + 1, size=(rows, cols))  # 0 表示背景
 
     # 准备数据
-    X_train, y_train, X_val, y_val, X_test, y_test = prepare_data(data, labels, dim=1)
+    X_train, y_train, X_test, y_test = prepare_data(data, labels, dim=1)
 
     # 创建模型实例
     model = ResNet1D(input_channels=bands, num_classes=num_classes)
