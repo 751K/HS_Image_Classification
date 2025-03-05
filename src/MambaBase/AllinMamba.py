@@ -1,13 +1,15 @@
 import torch
 from torch import nn
 from einops import rearrange
-from mamba_ssm import Mamba2
-from mamba_ssm import Mamba
+# from mamba_ssm import Mamba2
+# from mamba_ssm import Mamba as Mamba1
+from src.MambaBase.Mamba1 import Mamba1
+from src.MambaBase.Mamba2 import Mamba2
 
 
 class AllinMamba(nn.Module):
-    def __init__(self, input_channels, num_classes, patch_size, hidden_dim=128, depth=1, mlp_dim=128, dropout=0.,
-                 emb_dropout=0., d_state=4, d_conv=4, expand=8, mode=2):
+    def __init__(self, input_channels, num_classes, patch_size, hidden_dim=128, depth=1, mlp_dim=128, dropout=0.2,
+                 emb_dropout=0.2, d_state=4, expand=8, mode=2):
         super().__init__()
 
         self.dim = 3
@@ -44,34 +46,30 @@ class AllinMamba(nn.Module):
             nn.Linear(mlp_dim, num_classes),
             nn.BatchNorm1d(num_classes)
         )
-
+        # d_conv = 2/4
         if mode == 1:
-            self.MambaLayer1 = Mamba(
+            self.MambaLayer1 = Mamba1(
                 d_model=hidden_dim,
                 d_state=d_state,
-                d_conv=d_conv,
                 expand=expand
             )
-            self.MambaLayer2 = Mamba(
+            self.MambaLayer2 = Mamba1(
                 d_model=self.scan_length,
                 d_state=d_state,
-                d_conv=d_conv,
                 expand=expand
             )
         else:
             self.MambaLayer1 = Mamba2(
                 d_model=hidden_dim,
                 d_state=d_state,
-                d_conv=d_conv,
-                expand=expand,
-                headdim=32
+                headdim=32,
+                expand=expand
             )
             self.MambaLayer2 = Mamba2(
                 d_model=self.scan_length,
                 d_state=d_state,
-                d_conv=d_conv,
-                expand=expand * 16,
-                headdim=16
+                headdim=16,
+                expand=expand * 16
             )
 
     @staticmethod

@@ -28,7 +28,7 @@ def visualize_classification(model, data, labels, device, config, class_names, l
         save_path (str, optional): 保存可视化图的路径。如果为 None，则使用默认路径保存
 
     """
-    model.eval()
+    # model.eval()
 
     height, width, channels = data.shape
     # data:Original data shape: (512, 217, 80)

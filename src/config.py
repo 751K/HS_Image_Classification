@@ -10,7 +10,7 @@ from src.model_init import AVAILABLE_MODELS
 
 class Config:
     def __init__(self):
-        self.test_mode = False
+        self.test_mode = True
 
         # 获取调用此类的文件名
         caller_frame = inspect.stack()[1]
@@ -22,7 +22,7 @@ class Config:
             self.num_epochs = 20
         else:
             self.model_name = 'AllinMamba'
-            self.num_epochs = 100
+            self.num_epochs = 10
             # torch.autograd.set_detect_anomaly = True
 
         self.batch_size = 128
@@ -34,7 +34,7 @@ class Config:
 
         self.seed = 42
         self.datasets = 'Salinas'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana'
-        self.patch_size = 9
+        self.patch_size = 3
 
         # self.resume_checkpoint = '../results/Salinas_AllinMamba_0226_1559/checkpoint_epoch_100.pth'
         self.resume_checkpoint = None
@@ -42,7 +42,7 @@ class Config:
         # 降维相关配置
         self.perform_dim_reduction = True
         self.dim_reduction = 'PCA'  # 可选: 'PCA', 'KernelPCA', 'MDS', 'UMAP'，‘NMF’
-        self.n_components = 100  # 降维后的组件数
+        self.n_components = 64  # 降维后的组件数
         self.pca_whiten = False
         self.kpca_kernel = 'rbf'
         self.kpca_gamma = None
