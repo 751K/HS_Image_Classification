@@ -8,6 +8,8 @@ from einops import rearrange
 from torch import nn
 import torch.nn.init as init
 
+from Train_and_Eval.device import get_device
+
 
 def _weights_init(m):
     if isinstance(m, nn.Linear) or isinstance(m, nn.Conv3d):
@@ -106,8 +108,8 @@ class S6_noC(nn.Module):
         B_ = torch.einsum('B L D,B L D->B L D ', delta, B_0)  # [B L D]
 
         output = []
-        # 这里定义的 s 必须手动放到cuda上，因为后面会用到
-        s = torch.zeros(x.shape[0], x.shape[2]).cuda()  # [b d]
+        # 这里定义的 s 必须手动放到device上，因为后面会用到
+        s = torch.zeros(x.shape[0], x.shape[2]).to(device)  # [b d]
 
         for t in range(x.shape[1]):
             s = torch.einsum('B D,B D-> B D', A_[:, t, ], s) + torch.einsum('B D, B D->B D',
@@ -132,7 +134,7 @@ class Scan(nn.Module):
     def forward(x):  # [64,21,5,5]
         cen = x.shape[2] // 2  # 5
         x = rearrange(x, 'b c h w -> b h w c')  # [64,5,5,21]
-        x_out = torch.zeros(x.shape[0], x.shape[1] * x.shape[2], x.shape[3]).cuda()  # [64,25,21]
+        x_out = torch.zeros(x.shape[0], x.shape[1] * x.shape[2], x.shape[3]).to(device)  # [64,25,21]
         x_out[:, 0, :] = x[:, cen, cen, :]
 
         assignments_map = {
@@ -255,7 +257,7 @@ if __name__ == "__main__":
                     dropout=dropout)
 
     # 设置设备
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = get_device()
     print(f"Using device: {device}")
     model = model.to(device)
 
@@ -274,7 +276,9 @@ if __name__ == "__main__":
             print(f"Output shape: {output.shape}")
 
         except Exception as e:
-            print(f"An error occurred for input size {size}: {e}\n")
+            import traceback
+            error_msg = f"程序执行过程中发生错误:\n{str(e)}\n{''.join(traceback.format_tb(e.__traceback__))}"
+            print(error_msg)
 
     # 计算并打印模型参数总数
     total_params = sum(p.numel() for p in model.parameters())

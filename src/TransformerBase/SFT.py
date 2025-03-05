@@ -4,6 +4,8 @@ import torch.nn as nn
 from einops import rearrange, repeat
 from torch.nn import functional as F
 
+from Train_and_Eval.device import get_device
+
 
 class Residual(nn.Module):
     def __init__(self, fn):
@@ -206,7 +208,7 @@ if __name__ == "__main__":
     model = SFT(input_channels=in_chans, num_classes=num_classes)
 
     # 设置设备
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = get_device()
     print(f"Using device: {device}")
     model = model.to(device)
 

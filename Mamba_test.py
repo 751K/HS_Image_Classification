@@ -3,18 +3,22 @@ import time
 from mamba_ssm import Mamba2
 from mamba_ssm import Mamba
 
+from Train_and_Eval.device import get_device
+
 # 定义模型参数
 dim = 64  # 模型维度 d_model
 d_state = 4  # SSM状态扩展因子
 d_conv = 4  # 局部卷积宽度
 expand = 4  # 块扩展因子
 
+device = get_device()
+
 model1 = Mamba(
     d_model=dim,
     d_state=d_state,
     d_conv=d_conv,
     expand=expand
-).to("cuda")
+).to(device)
 
 # 对Mamba2，确保 d_model * expand / headdim = 8 的倍数
 model2 = Mamba2(
@@ -23,12 +27,12 @@ model2 = Mamba2(
     d_conv=d_conv,
     expand=expand,
     headdim=16
-).to("cuda")
+).to(device)
 
 # 生成一些随机输入数据
 batch_size = 32
 seq_length = 2048
-x = torch.randn(batch_size, seq_length, dim).to("cuda")
+x = torch.randn(batch_size, seq_length, dim).to(device)
 
 # 预热运行
 print("预热运行...")
@@ -44,7 +48,7 @@ mamba2_times = []
 print(f"\n开始{num_iterations}次计时测试...")
 with torch.no_grad():
     for i in range(num_iterations):
-        x = torch.randn(batch_size, seq_length, dim).to("cuda")
+        x = torch.randn(batch_size, seq_length, dim).to(device)
         # Mamba测试
         start_time = time.time()
         y1 = model1(x)

@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import GCNConv
 
+from Train_and_Eval.device import get_device
+
 
 class SpectralGCNLayer(nn.Module):
     def __init__(self, in_channels: int, out_channels: int):
@@ -94,7 +96,7 @@ class GCN2D(nn.Module):
 # 测试代码
 if __name__ == '__main__':
     patch_size = [3, 5, 7, 9]
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = get_device()
     model = GCN2D(input_channels=200, num_classes=16).to(device)
 
     for size in patch_size:

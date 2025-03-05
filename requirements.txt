@@ -2,7 +2,7 @@ cuml==0.6.1.post1
 cupy==13.3.0
 einops==0.8.0
 joblib==1.4.2
-mamba_ssm==1.2.0
+mamba_ssm~=1.4.0
 matplotlib==3.10.0
 numpy~=1.26.4
 scikit_learn==1.6.1

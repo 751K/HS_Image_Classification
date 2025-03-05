@@ -4,6 +4,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange, repeat, einsum
 
+from Train_and_Eval.device import get_device
+
 
 # -----------------------------
 # RMSNorm 定义
@@ -152,8 +154,7 @@ class Mamba1(nn.Module):
 # 测试代码：直接测试 MambaBlock
 # -----------------------------
 if __name__ == "__main__":
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+    device = get_device()
     # 参数设置：
     # d_model: 输入输出的隐藏维度 (512)
     # d_state: 状态空间模型中的状态维度 (64)

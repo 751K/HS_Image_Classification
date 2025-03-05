@@ -4,6 +4,8 @@ import torch.nn as nn
 from typing import Callable
 from timm.layers import DropPath
 from functools import partial
+
+from Train_and_Eval.device import get_device
 from src.MambaBase.SSM import SSM
 
 
@@ -322,7 +324,7 @@ if __name__ == "__main__":
     model = SSMamba(input_channels=in_chans, num_classes=num_classes)
 
     # 设置设备
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = get_device()
     print(f"Using device: {device}")
     model = model.to(device)
 

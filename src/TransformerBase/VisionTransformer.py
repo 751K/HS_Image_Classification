@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+from Train_and_Eval.device import get_device
+
 
 class PatchEmbedding(nn.Module):
     def __init__(self, in_channels, embed_dim):
@@ -69,13 +71,15 @@ class VisionTransformer(nn.Module):
 
 if __name__ == "__main__":
     # 使用示例
+    device = get_device()
     model = VisionTransformer(input_channels=3, num_classes=10, embed_dim=64, depth=6, num_heads=8)
+    model.to(device)
 
     # 测试不同输入尺寸
     test_inputs = [
-        torch.randn(1, 3, 3, 3),
-        torch.randn(1, 3, 5, 5),
-        torch.randn(1, 3, 7, 7)
+        torch.randn(1, 3, 3, 3).to(device),
+        torch.randn(1, 3, 5, 5).to(device),
+        torch.randn(1, 3, 7, 7).to(device)
     ]
 
     for input_tensor in test_inputs:

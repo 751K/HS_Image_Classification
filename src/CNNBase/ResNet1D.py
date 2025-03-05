@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 
+from Train_and_Eval.device import get_device
 from datesets.Dataset import prepare_data
 
 
@@ -83,20 +84,14 @@ if __name__ == '__main__':
     # 假设我们有一个高光谱图像数据集
     bands, rows, cols = 200, 100, 100
     num_classes = 16
-
-    # 模拟高光谱数据和标签
-    data = np.random.rand(bands, rows, cols)
-    labels = np.random.randint(0, num_classes + 1, size=(rows, cols))  # 0 表示背景
-
-    # 准备数据
-    X_train, y_train, X_test, y_test = prepare_data(data, labels, dim=1)
+    device = get_device()
 
     # 创建模型实例
-    model = ResNet1D(input_channels=bands, num_classes=num_classes)
+    model = ResNet1D(input_channels=bands, num_classes=num_classes).to(device)
 
     # 测试模型
     batch_size = 32
-    input_data = torch.randn(batch_size, bands)
+    input_data = torch.randn(batch_size, bands).to(device)
     output = model(input_data)
     print(f"Input shape: {input_data.shape}")
     print(f"Output shape: {output.shape}")

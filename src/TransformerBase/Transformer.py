@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import math
 
+from Train_and_Eval.device import get_device
+
 
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, max_len=5000):
@@ -72,12 +74,13 @@ if __name__ == "__main__":
     input_channels = 80  # 根据您的数据调整
     num_classes = 10  # 根据您的分类任务调整
 
+    device = get_device()
     # 创建模型
-    model = Transformer(input_channels, num_classes)
+    model = Transformer(input_channels, num_classes).to(device)
 
     # 创建一个随机输入进行测试
     batch_size = 32
-    x = torch.randn(batch_size, input_channels, 25)  # 序列长度固定为25
+    x = torch.randn(batch_size, input_channels, 25).to(device)  # 序列长度固定为25
 
     # 前向传播
     output = model(x)

@@ -5,6 +5,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 
+from Train_and_Eval.device import get_device
+
 
 class ResidualBlock2D(nn.Module):
     def __init__(self, in_channels: int, out_channels: int, dilation: int = 1):
@@ -80,12 +82,13 @@ if __name__ == '__main__':
     # 测试代码
     batch_size, in_channels = 16, 200
     n_classes = 16
-    model = ResNet2D(input_channels=in_channels, num_classes=n_classes)
+    device = get_device()
+    model = ResNet2D(input_channels=in_channels, num_classes=n_classes).to(device)
 
     # 测试不同输入尺寸
     for size in [(3, 3), (5, 5), (7, 7), (9, 9)]:
         height, width = size
-        input_data = torch.randn(batch_size, in_channels, height, width)
+        input_data = torch.randn(batch_size, in_channels, height, width).data
 
         # 前向传播
         output = model(input_data)

@@ -5,6 +5,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 
+from Train_and_Eval.device import get_device
+
 
 class BottleneckBlock3D(nn.Module):
     expansion = 4
@@ -86,7 +88,7 @@ class ResNet3D(nn.Module):
 
 if __name__ == '__main__':
     # 测试代码
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = get_device()
     batch_size, in_channels = 16, 200
     n_classes = 16
     model = ResNet3D(input_channels=in_channels, num_classes=n_classes)

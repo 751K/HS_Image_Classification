@@ -5,17 +5,19 @@ import sys
 from datetime import datetime
 
 import torch
+from sympy import false
+
 from src.model_init import AVAILABLE_MODELS
 
 
 class Config:
     def __init__(self):
-        self.test_mode = True
+        self.test_mode = false
 
         # 获取调用此类的文件名
         caller_frame = inspect.stack()[1]
         caller_filename = os.path.basename(caller_frame.filename)
-        torch.backends.cudnn.benchmark = True
+        # torch.backends.cudnn.benchmark = True
 
         if caller_filename == 'main.py' and self.test_mode is not True:
             self.model_name = self.select_model()
@@ -34,7 +36,7 @@ class Config:
 
         self.seed = 42
         self.datasets = 'Salinas'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana'
-        self.patch_size = 3
+        self.patch_size = 7
 
         # self.resume_checkpoint = '../results/Salinas_AllinMamba_0226_1559/checkpoint_epoch_100.pth'
         self.resume_checkpoint = None

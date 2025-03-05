@@ -3,6 +3,8 @@ import torch.nn.functional as F
 from einops import rearrange
 from torch import nn
 
+from Train_and_Eval.device import get_device
+
 
 class Residual(nn.Module):
     """
@@ -272,7 +274,7 @@ class SSFTT(nn.Module):
 
 if __name__ == '__main__':
     # 测试代码
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = get_device()
     batch_size, in_channels = 16, 200
     n_classes = 16
     model = SSFTT(input_channels=in_channels, num_classes=n_classes)

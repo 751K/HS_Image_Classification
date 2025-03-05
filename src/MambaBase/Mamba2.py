@@ -4,6 +4,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange, repeat
 
+from Train_and_Eval.device import get_device
+
 
 # -----------------------------
 # RMSNorm 定义
@@ -29,7 +31,7 @@ def silu(x):
 # -----------------------------
 class Mamba2(nn.Module):
     def __init__(self, d_model: int, d_state: int, headdim: int, chunk_size: int = 2, expand: int = 2,
-                 device: str = 'cuda', d_conv: int = 4):
+                 device: str = 'mps', d_conv: int = 4):
         super().__init__()
         self.d_model = d_model
         self.d_inner = expand * d_model
@@ -179,9 +181,8 @@ def ssd(x, A, B, C, chunk_size, initial_states=None, device=None):
 # 测试代码：测试 Mamba2 模型（重新加入卷积操作）
 # -----------------------------
 if __name__ == "__main__":
-    # 设置设备，优先使用 GPU（cuda），否则使用 CPU
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    device = get_device()
     # 参数设置：
     # d_model：模型主维度，表示输入嵌入和输出表示的维度（512）。
     d_model = 512

@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from Train_and_Eval.device import get_device
+
 
 class SwimTransformerBlock(nn.Module):
     def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, dropout=0.):
@@ -79,12 +81,13 @@ if __name__ == "__main__":
     # 初始化模型
     input_channels = 3
     num_classes = 10
-    model = SwimTransformer(input_channels, num_classes)
+    device = get_device()
+    model = SwimTransformer(input_channels, num_classes).to(device)
 
     # 测试不同尺寸的输入
     batch_size = 64
     for patch_size in [3, 5]:
-        x = torch.randn(batch_size, input_channels, patch_size, patch_size)
+        x = torch.randn(batch_size, input_channels, patch_size, patch_size).to(device)
         output = model(x)
         print(f"输入形状: {x.shape}")
         print(f"输出形状: {output.shape}")

@@ -2,6 +2,8 @@ import torch
 from torch import nn
 from torch.nn import init
 
+from Train_and_Eval.device import get_device
+
 
 class HybridSN(nn.Module):
     def __init__(self, input_channels, num_classes, patch_size=19):
@@ -95,7 +97,7 @@ if __name__ == "__main__":
     batch_size = 4
 
     # 设置设备
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = get_device()
     print(f"Using device: {device}")
 
     # 测试不同输入尺寸

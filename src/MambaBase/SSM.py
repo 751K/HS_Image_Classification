@@ -3,7 +3,6 @@ from torch import nn
 import math
 import torch.nn.functional as F
 from einops import rearrange, repeat
-from mamba_ssm.ops.selective_scan_interface import selective_scan_fn
 
 
 class SSM(nn.Module):
@@ -65,7 +64,17 @@ class SSM(nn.Module):
         self.A_log = self.A_log_init(self.d_state, self.d_inner)
         self.D = self.D_init(self.d_inner)
 
-        self.selective_scan = selective_scan_fn
+        from src.MambaBase.Mamba1 import Mamba1
+        from src.Train_and_Eval.device import get_device
+        device = get_device()
+        if device == 'cuda':
+            from mamba_ssm.ops.selective_scan_interface import selective_scan_fn
+        elif device == 'mps':
+            # TODO： fix mps
+            Mamba1 = Mamba1(d_model=self.d_model, d_state=self.d_state, expand=self.expand, d_conv=4, conv_bias=True)
+            self.selective_scan = Mamba1.selective_scan
+        elif device == 'cpu':
+            pass
 
         # 输出层
         self.out_norm = nn.LayerNorm(self.d_inner)
