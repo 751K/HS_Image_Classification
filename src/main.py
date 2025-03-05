@@ -1,5 +1,6 @@
 # main.py
 import os
+os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
 import sys
 import torch
 import torch.nn as nn
@@ -7,6 +8,8 @@ import numpy as np
 import torch.optim as optim
 
 from torch.utils.tensorboard import SummaryWriter
+
+from Train_and_Eval.device import get_device
 from Train_and_Eval.learing_rate import WarmupCosineSchedule
 from Train_and_Eval.log import setup_logger
 from Train_and_Eval.model import save_model, save_test_results, set_seed
@@ -51,7 +54,9 @@ def main():
 
         # 创建模型
         model = create_model(config.model_name, input_channels, num_classes, config.patch_size)
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        device = get_device()
+        logger.info('使用设备: {}'.format(device))
         model.to(device)
 
         logger.info(f"模型创建完成：{config.model_name}")
@@ -122,9 +127,10 @@ def main():
     except SystemExit:
         print("程序已按用户请求退出。")
     except Exception as e:
-        print(f"程序执行过程中发生错误: {e}")
+        import traceback
+        error_msg = f"程序执行过程中发生错误:\n{str(e)}\n{''.join(traceback.format_tb(e.__traceback__))}"
+        print(error_msg)
         sys.exit(1)
-
 
 if __name__ == '__main__':
     main()
