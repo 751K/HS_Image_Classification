@@ -1,8 +1,11 @@
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 from torch.nn import init
+
+from Train_and_Eval.device import get_device
 
 
 class LeeEtAl3D(nn.Module):
@@ -42,8 +45,10 @@ class LeeEtAl3D(nn.Module):
         Returns:
             Tensor: 输出张量，形状为 (batch_size, num_classes)。
         """
+
         x_3x3 = self.inception['conv_3x3'](x)
         x_1x1 = self.inception['conv_1x1'](x)
+
         x = torch.cat([x_3x3, x_1x1], dim=1)
         x = x.squeeze(2)
         x = F.relu(self.lrn1(x))
@@ -156,10 +161,11 @@ if __name__ == '__main__':
     batch_size, in_channels = 16, 200
     input_sizes = [(3, 3), (5, 5), (7, 7)]
     n_classes = 16
-    model = LeeEtAl3D(in_channels, n_classes)
+    device = get_device()
+    model = LeeEtAl3D(in_channels, n_classes).to(device)
 
     for size in input_sizes:
-        input_data = torch.randn(batch_size, 1, in_channels, *size)
+        input_data = torch.randn(batch_size, 1, in_channels, *size).to(device)
         output = model(input_data)
         print(f"Input shape: {input_data.shape}")
         print(f"Output shape: {output.shape}")
