@@ -23,7 +23,7 @@ def set_seed(seed):
     torch.backends.cudnn.benchmark = False
 
 
-def save_model(state_dict, path,logger):
+def save_model(state_dict, path):
     """
     保存模型的状态字典。
 
@@ -33,7 +33,6 @@ def save_model(state_dict, path,logger):
         logger: logger
     """
     torch.save(state_dict, path)
-    logger.info(f"Model state_dict saved to {path}")
 
 
 def save_test_results(all_preds, all_labels, accuracy, classification_report, path, logger):

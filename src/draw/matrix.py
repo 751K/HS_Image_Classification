@@ -14,7 +14,6 @@ def plot_and_save_confusion_matrix(labels, preds, num_classes, save_path):
         save_path (str): 保存图像的路径。
     """
     # 计算混淆矩阵
-    num_classes = num_classes - 1
     cm = confusion_matrix(labels, preds)
 
     # 可视化混淆矩阵

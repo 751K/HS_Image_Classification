@@ -11,7 +11,7 @@ class HSIDataset(Dataset):
     def __init__(self, input_data, input_labels, dim=1):
         self.dim = dim
         self.data = torch.as_tensor(input_data, dtype=torch.float32).contiguous()
-        self.labels = torch.tensor(input_labels, dtype=torch.long)
+        self.labels = torch.as_tensor(input_labels, dtype=torch.long)
 
     def __len__(self):
         return self.data.shape[-1] if self.dim == 1 else len(self.data)
@@ -41,6 +41,7 @@ def create_patches(input_data, input_labels, patch_size=5):
     # 使用有效索引选择 patches 和 labels
     patches = patches[valid_indices]
     patch_labels = patch_labels[valid_indices]
+    patch_labels = patch_labels - 1
 
     # 转换 patches 的形状为 (num_patches, bands, patch_size, patch_size)
     patches = patches.transpose(0, 3, 1, 2)
@@ -55,6 +56,7 @@ def reshape_data_1D(data, labels):
     X = data.reshape(-1, bands)
     X = X[valid_pixels]
     y = y[valid_pixels]
+    y = y - 1
     return X, y
 
 
@@ -63,24 +65,24 @@ def prepare_data(data, labels, test_size=0.9, random_state=42, dim=1, patch_size
         raise ValueError("Dim must be 1, 2, or 3")
 
     if dim == 1:
-        X, y = reshape_data_1D(data, labels)
-
+        processed_data, processed_labels = reshape_data_1D(data, labels)
     else:
         # patch: (num_patches, bands, patch_size, patch_size)
         patches, patch_labels = create_patches(data, labels, patch_size)
         if dim == 2:
-            X = patches
+            processed_data = patches
         else:
-            X = patches.reshape(patches.shape[0], 1, patches.shape[1], patch_size, patch_size)
-        y = patch_labels
+            processed_data = patches.reshape(patches.shape[0], 1, patches.shape[1], patch_size, patch_size)
+        processed_labels = patch_labels
 
     if test_size == 1:
-        return X, y, None, None, None, None
+        return processed_data, processed_labels
     else:
         val_size = 0.5
-        train_data, train_label, test_data, test_label, val_data, val_label = (
-            spilt_three(X, y, test_size=test_size, val_size=val_size, random_state=random_state))
-        return train_data, train_label, test_data, test_label, val_data, val_label
+        train_data, train_labels, test_data, test_labels, val_data, val_labels = (
+            spilt_three(processed_data, processed_labels, test_size=test_size, val_size=val_size,
+                        random_state=random_state))
+        return train_data, train_labels, test_data, test_labels, val_data, val_labels
 
 
 def split_two(data, labels, test_size=0.95, random_state=42):
@@ -135,6 +137,57 @@ def create_data_loaders(X_train, y_train, X_test, y_test, batch_size, num_worker
         return train_dataloader, test_dataloader, val_dataloader
     else:
         return train_dataloader, test_dataloader
+
+
+def create_one_loader(X, y, batch_size=32, num_workers=4, dim=1):
+    dataset = HSIDataset(X, y, dim)
+
+    train_dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    return train_dataloader
+
+
+def create_three_loader(X_train, y_train, X_test, y_test, X_val, y_val, batch_size=32, num_workers=4, dim=1,
+                        logger=None):
+    train_dataset = HSIDataset(X_train, y_train, dim)
+    test_dataset = HSIDataset(X_test, y_test, dim)
+    val_dataset = HSIDataset(X_val, y_val, dim)
+
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+
+    try:
+        inputs, input_labels = next(iter(train_dataloader))
+        if logger is not None:
+            logger.info(f"Inputs shape: {inputs.shape}")
+            logger.info(f"Labels shape: {input_labels.shape}")
+    except Exception as e:
+        import traceback
+        error_msg = f"程序执行过程中发生错误:\n{str(e)}\n{''.join(traceback.format_tb(e.__traceback__))}"
+        print(error_msg)
+
+    return train_dataloader, test_dataloader, val_dataloader
+
+
+def create_two_loader(X_train, y_train, X_test, y_test, batch_size=32, num_workers=4, dim=1,
+                      logger=None):
+    train_dataset = HSIDataset(X_train, y_train, dim)
+    test_dataset = HSIDataset(X_test, y_test, dim)
+
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+
+    try:
+        inputs, input_labels = next(iter(train_dataloader))
+        if logger is not None:
+            logger.info(f"Inputs shape: {inputs.shape}")
+            logger.info(f"Labels shape: {input_labels.shape}")
+    except Exception as e:
+        import traceback
+        error_msg = f"程序执行过程中发生错误:\n{str(e)}\n{''.join(traceback.format_tb(e.__traceback__))}"
+        print(error_msg)
+
+    return train_dataloader, test_dataloader
 
 
 # 使用示例

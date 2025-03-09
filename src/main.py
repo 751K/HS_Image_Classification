@@ -14,7 +14,7 @@ from Train_and_Eval.learing_rate import WarmupCosineSchedule
 from Train_and_Eval.log import setup_logger
 from Train_and_Eval.model import save_model, save_test_results, set_seed
 from config import Config
-from datesets.Dataset import prepare_data, create_data_loaders
+from datesets.Dataset import prepare_data, create_three_loader
 from model_init import create_model
 from Dim.api import apply_dimension_reduction
 from datesets.datasets_load import load_dataset
@@ -49,7 +49,8 @@ def main():
         data = apply_dimension_reduction(data, config, logger)
         logger.info(f"使用{config.dim_reduction}降维完成")
 
-        num_classes = len(np.unique(labels))
+        # 不包含背景类
+        num_classes = len(np.unique(labels)) - 1
         input_channels = data.shape[-1]
 
         # 创建模型
@@ -65,13 +66,15 @@ def main():
         X_train, y_train, X_test, y_test, X_val, y_val = prepare_data(data, labels, test_size=config.test_size,
                                                                       dim=model.dim, patch_size=config.patch_size,
                                                                       random_state=config.seed)
+
         logger.info(f"训练集尺寸: {X_train.shape}")
         logger.info(f"测试集尺寸: {X_test.shape}")
         logger.info(f'验证集尺寸: {X_val.shape}')
         logger.info("数据预处理完成")
-        train_loader, test_loader, val_loader = create_data_loaders(
-            X_train, y_train, X_test, y_test, config.batch_size, config.num_workers,
-            dim=model.dim, logger=logger, X_val=X_val, y_val=y_val
+
+        train_loader, test_loader, val_loader = create_three_loader(
+            X_train, y_train, X_test, y_test, X_val, y_val, config.batch_size,
+            config.num_workers, dim=model.dim, logger=logger
         )
         logger.info("Dataloader创建完成")
 
@@ -105,7 +108,7 @@ def main():
         logger.info("模型训练完成")
         # 保存最佳模型
         model_save_path = os.path.join(config.save_dir, "best_model.pth")
-        save_model(best_model_state_dict, model_save_path, logger)
+        save_model(best_model_state_dict, model_save_path)
         logger.info(f"最佳模型已保存到: {model_save_path}")
 
         # 评估模型
@@ -121,9 +124,7 @@ def main():
 
         confusion_matrix_save_path = os.path.join(config.save_dir, "confusion_matrix.png")
         plot_and_save_confusion_matrix(all_labels, all_preds, num_classes, confusion_matrix_save_path)
-        visualize_save_path = os.path.join(config.save_dir, "visualization.png")
-        visualize_classification(model, data, labels, device, config, dataset_info, logger,
-                                 save_path=visualize_save_path)
+        visualize_classification(model, data, labels, device, config, logger)
         writer.close()
         logger.info("程序执行完毕")
 

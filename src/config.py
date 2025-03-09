@@ -5,8 +5,6 @@ import os
 import sys
 from datetime import datetime
 
-from sympy import false
-
 from src.model_init import AVAILABLE_MODELS
 
 
@@ -26,7 +24,7 @@ class Config:
 
         else:
             self.model_name = 'AllinMamba'
-            self.num_epochs = 60
+            self.num_epochs = 2
             # torch.autograd.set_detect_anomaly(True)
 
         self.batch_size = 32
@@ -40,7 +38,7 @@ class Config:
         self.datasets = 'Salinas'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana'
         self.patch_size = 9
 
-        # self.resume_checkpoint = '../results/Salinas_AllinMamba_0226_1559/checkpoint_epoch_100.pth'
+        # self.resume_checkpoint = '../results/Salinas_AllinMamba_0309_1345/checkpoint_epoch_40.pth'
         self.resume_checkpoint = None
 
         # 降维相关配置

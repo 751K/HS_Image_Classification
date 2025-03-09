@@ -30,7 +30,7 @@ def evaluate_model(model, data_loader, criterion, device, logger, class_result=F
     all_labels = []
 
     with torch.no_grad():
-        for inputs, labels in data_loader:
+        for i, (inputs, labels) in enumerate(data_loader):
             inputs = inputs.to(device)
             labels = labels.to(device)
 
@@ -40,6 +40,7 @@ def evaluate_model(model, data_loader, criterion, device, logger, class_result=F
             running_loss += loss.item() * inputs.size(0)
 
             _, predicted = torch.max(outputs.data, 1)
+
             all_preds.extend(predicted.cpu().numpy())
             all_labels.extend(labels.cpu().numpy())
 
@@ -52,19 +53,18 @@ def evaluate_model(model, data_loader, criterion, device, logger, class_result=F
     avg_loss = running_loss / len(all_labels)
 
     # 计算每个类别的准确率
-    class_accuracies = {}
-    if class_result:
-        unique_classes = np.unique(all_labels)
-        logger.info("\n各类别准确率:")
-        for class_id in unique_classes:
-            class_mask = all_labels == class_id
-            class_accuracy = accuracy_score(all_labels[class_mask], all_preds[class_mask])
-            class_accuracies[class_id] = class_accuracy
+    class_accuracies = []
+    unique_classes = np.unique(all_labels)
+
+    for class_id in unique_classes:
+        class_mask = all_labels == class_id
+        class_accuracy = accuracy_score(all_labels[class_mask], all_preds[class_mask])
+        class_accuracies.append(class_accuracy)
+        if class_result:
             logger.info("类别 %d: 准确率 = %.4f", class_id, class_accuracy)
 
-    # 计算平均准确率 (AA)
-    aa = np.mean([accuracy_score(all_labels[all_labels == class_id], all_preds[all_labels == class_id]) for class_id in
-                  np.unique(all_labels)])
+    class_accuracies = np.array(class_accuracies)
+    aa = np.mean(class_accuracies)
 
     # 计算 Kappa 系数
     kappa = cohen_kappa_score(all_labels, all_preds)
