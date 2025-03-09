@@ -8,7 +8,7 @@ class WarmupCosineSchedule(_LRScheduler):
     """
     实现带有预热阶段的余弦学习率调度。
 
-    这个调度器首先线性增加学习率，然后使用余弦衰减。
+    首先线性增加学习率，然后使用余弦衰减。
 
     Args:
         optimizer (torch.optim.Optimizer): 要调度的优化器。

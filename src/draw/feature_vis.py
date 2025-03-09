@@ -4,11 +4,12 @@ import shap
 import numpy as np
 from torch import nn
 
+from datesets.Dataset import create_two_loader
 from src.config import Config
 from datesets.datasets_load import load_dataset
 from Dim.api import apply_dimension_reduction
 from model_init import create_model
-from src.datesets.Dataset import prepare_data, create_data_loaders
+from src.datesets.Dataset import prepare_data
 from src.Train_and_Eval.log import setup_logger
 from src.Train_and_Eval.model import set_seed
 
@@ -133,8 +134,7 @@ def run_shap_explanation():
                                                                   patch_size=config.patch_size)
     logger.info("数据预处理完成")
 
-    # 创建背景数据和解释数据的 DataLoader
-    background_loader, explain_loader = create_data_loaders(
+    background_loader,explain_loader = create_two_loader(
         X_train[:100], y_train[:100], X_test[:100], y_test[:100],
         config.batch_size, config.num_workers, dim=model.dim, logger=logger
     )

@@ -1,21 +1,22 @@
+import logging
 import os
 import numpy as np
 from scipy.io import loadmat
 
 
-def load_dataset(dataset_name,logger=None):
+def load_dataset(dataset_name: str, logger: logging.Logger = None):
     """
     加载高光谱数据集（Indian Pines, Pavia University, Salinas）
 
     Args:
-    dataset_name (str): 数据集名称 ('Indian', 'Pavia', 'Salinas')
-    base_path (str): 项目根目录路径
+        dataset_name (str): 数据集名称 ('Indian', 'Pavia', 'Salinas')
+        logger (logging.Logger, optional): 日志记录器对象
 
     Return:
-    tuple: (data, labels, label_names)
-        - data (numpy.ndarray): 形状为 (H, W, C) 的高光谱图像数据
-        - labels (numpy.ndarray): 形状为 (H, W) 的标签图像
-        - label_names (list): 标签名称列表
+        tuple: (data, labels, label_names)
+            - data (numpy.ndarray): 形状为 (H, W, C) 的高光谱图像数据
+            - labels (numpy.ndarray): 形状为 (H, W) 的标签图像
+            - label_names (list): 标签名称列表
     """
     dataset_info = {
         'Indian': {
@@ -121,5 +122,6 @@ if __name__ == "__main__":
             print("标签值:", np.unique(labels))
         except Exception as e:
             import traceback
+
             error_msg = f"加载 {dataset_name} 数据集时出错:\n{str(e)}\n{''.join(traceback.format_tb(e.__traceback__))}"
             print(error_msg)

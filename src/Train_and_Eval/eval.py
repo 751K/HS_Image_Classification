@@ -3,7 +3,8 @@ import torch
 from sklearn.metrics import accuracy_score, cohen_kappa_score
 
 
-def evaluate_model(model, data_loader, criterion, device, logger, class_result=False):
+def evaluate_model(model, data_loader, criterion, device, logger, class_result=False) \
+        -> [float, tuple[float, float, float], np.ndarray, np.ndarray]:
     """
     评估模型性能。
 

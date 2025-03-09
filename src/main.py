@@ -1,5 +1,7 @@
 # main.py
 import os
+import pickle
+
 os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
 
 import sys
@@ -41,6 +43,9 @@ def main():
         logger.info(
             f"配置参数：epochs={config.num_epochs}, batch_size={config.batch_size}, num_workers={config.num_workers}")
 
+        device = config.device
+        logger.info('使用设备: {}'.format(device))
+
         # 加载和准备数据
         data, labels, dataset_info = load_dataset(config.datasets, logger)
 
@@ -55,10 +60,6 @@ def main():
 
         # 创建模型
         model = create_model(config.model_name, input_channels, num_classes, config.patch_size)
-
-        device = get_device()
-        logger.info('使用设备: {}'.format(device))
-        model.to(device)
 
         logger.info(f"模型创建完成：{config.model_name}")
 
@@ -82,7 +83,6 @@ def main():
         criterion = nn.CrossEntropyLoss()
 
         optimizer = optim.AdamW(model.parameters(), lr=config.learning_rate, weight_decay=0.01)
-        # optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)learning_rateΩ
 
         total_steps = config.num_epochs * len(train_loader)
         scheduler = WarmupCosineSchedule(optimizer, config.warmup_steps, total_steps)
@@ -94,7 +94,7 @@ def main():
         # 检查是否有断点
         start_epoch = 0
         if config.resume_checkpoint:
-            checkpoint = torch.load(config.resume_checkpoint)
+            checkpoint = torch.load(config.resume_checkpoint, map_location=device, pickle_module=pickle)
             model.load_state_dict(checkpoint['model_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             scheduler.load_state_dict(checkpoint['scheduler_state_dict'])

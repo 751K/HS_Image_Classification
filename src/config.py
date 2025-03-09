@@ -5,6 +5,7 @@ import os
 import sys
 from datetime import datetime
 
+from Train_and_Eval.device import get_device
 from src.model_init import AVAILABLE_MODELS
 
 
@@ -18,6 +19,7 @@ class Config:
         # torch.backends.cudnn.benchmark = True
 
         self.num_epochs = 50
+        self.device = get_device()
 
         if caller_filename == 'main.py' and self.test_mode is not True:
             self.model_name = self.select_model()

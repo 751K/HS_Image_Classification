@@ -1,5 +1,7 @@
 # model_init.py
 import torch.nn as nn
+
+from Train_and_Eval.device import get_device
 # 下面这行不能删
 from src.CNNBase.__init__ import *
 from src.TransformerBase.__init__ import *
@@ -55,4 +57,5 @@ def init_weights(m):
 def create_model(model_name, input_channels, num_classes, patch_size=3):
     model = get_model(model_name, input_channels=input_channels, num_classes=num_classes, patch_size=patch_size)
     model.apply(init_weights)
-    return model
+    device = get_device()
+    return model.to(device)
