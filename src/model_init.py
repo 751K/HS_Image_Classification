@@ -32,13 +32,24 @@ def get_model(model_name, **kwargs):
 
 
 def init_weights(m):
-    if isinstance(m, (nn.Conv2d, nn.Conv3d, nn.Linear)):
+    if isinstance(m, (nn.Conv1d, nn.Conv2d, nn.Conv3d, nn.Linear)):
         nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
         if m.bias is not None:
             nn.init.constant_(m.bias, 0)
-    elif isinstance(m, (nn.BatchNorm2d, nn.BatchNorm3d)):
+    elif isinstance(m, (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)):
         nn.init.constant_(m.weight, 1)
         nn.init.constant_(m.bias, 0)
+    elif isinstance(m, nn.LayerNorm):
+        nn.init.constant_(m.weight, 1)
+        nn.init.constant_(m.bias, 0)
+    elif isinstance(m, nn.Embedding):
+        nn.init.normal_(m.weight, mean=0, std=0.02)
+    elif isinstance(m, (nn.LSTM, nn.GRU)):
+        for name, param in m.named_parameters():
+            if 'weight_ih' in name or 'weight_hh' in name:
+                nn.init.orthogonal_(param)
+            elif 'bias' in name:
+                nn.init.constant_(param, 0)
 
 
 def create_model(model_name, input_channels, num_classes, patch_size=3):
