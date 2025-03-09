@@ -142,7 +142,7 @@ def create_data_loaders(X_train, y_train, X_test, y_test, batch_size, num_worker
 def create_one_loader(X, y, batch_size=32, num_workers=4, dim=1):
     dataset = HSIDataset(X, y, dim)
 
-    train_dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    train_dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
     return train_dataloader
 
 

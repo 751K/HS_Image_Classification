@@ -17,7 +17,7 @@ class Config:
         caller_filename = os.path.basename(caller_frame.filename)
         # torch.backends.cudnn.benchmark = True
 
-        self.num_epochs = 60
+        self.num_epochs = 50
 
         if caller_filename == 'main.py' and self.test_mode is not True:
             self.model_name = self.select_model()
@@ -35,11 +35,11 @@ class Config:
         self.test_size = 0.9
 
         self.seed = 3407
-        self.datasets = 'Salinas'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana'
+        self.datasets = 'Pavia'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana'
         self.patch_size = 9
 
-        # self.resume_checkpoint = '../results/Salinas_AllinMamba_0309_1345/checkpoint_epoch_40.pth'
         self.resume_checkpoint = None
+        # self.resume_checkpoint = '../results/Salinas_AllinMamba_0309_1804/checkpoint_epoch_40.pth'
 
         # 降维相关配置
         self.perform_dim_reduction = True
