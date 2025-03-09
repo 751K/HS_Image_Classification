@@ -86,7 +86,9 @@ def create_data_loaders_for_optimization(X_train, y_train, X_val, y_val, batch_s
             logger.info(f"Validation batch shape: {val_inputs.shape}")
             logger.info(f"Validation labels shape: {val_labels.shape}")
         except Exception as e:
-            logger.warning(f"Error checking dataloaders: {str(e)}")
+            import traceback
+            error_msg = f"检查dataloader时发生错误:\n{str(e)}\n{''.join(traceback.format_tb(e.__traceback__))}"
+            print(error_msg)
 
     return train_dataloader, val_dataloader
 

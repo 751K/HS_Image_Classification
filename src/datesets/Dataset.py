@@ -125,7 +125,9 @@ def create_data_loaders(X_train, y_train, X_test, y_test, batch_size, num_worker
             logger.info(f"Inputs shape: {inputs.shape}")
             logger.info(f"Labels shape: {input_labels.shape}")
     except Exception as e:
-        logger.error(f"An error occurred while checking the data loaders: {e}")
+        import traceback
+        error_msg = f"程序执行过程中发生错误:\n{str(e)}\n{''.join(traceback.format_tb(e.__traceback__))}"
+        print(error_msg)
 
     if X_val is not None and y_val is not None:
         val_dataset = HSIDataset(X_val, y_val, dim)

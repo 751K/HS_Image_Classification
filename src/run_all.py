@@ -34,7 +34,9 @@ def run_main_with_input(input_value):
             print(f"进程以非零退出码结束: {process.returncode}")
 
     except Exception as e:
-        print(f"执行过程中发生错误: {e}")
+        import traceback
+        error_msg = f"程序执行过程中发生错误:\n{str(e)}\n{''.join(traceback.format_tb(e.__traceback__))}"
+        print(error_msg)
 
 
 # 主执行逻辑

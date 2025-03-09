@@ -343,7 +343,9 @@ if __name__ == "__main__":
             print(f"Output shape: {output.shape}")
 
         except Exception as e:
-            print(f"An error occurred for input size {size}: {e}\n")
+            import traceback
+            error_msg = f"input size= {size}时发生错误 :\n{str(e)}\n{''.join(traceback.format_tb(e.__traceback__))}"
+            print(error_msg)
 
     # 计算并打印模型参数总数
     total_params = sum(p.numel() for p in model.parameters())

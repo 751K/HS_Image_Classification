@@ -119,6 +119,7 @@ if __name__ == "__main__":
             print(f"Total parameters: {total_params}")
 
         except Exception as e:
-            print(f"An error occurred for input size {size}: {e}\n")
-
+            import traceback
+            error_msg = f"input size {size}执行过程中发生错误:\n{str(e)}\n{''.join(traceback.format_tb(e.__traceback__))}"
+            print(error_msg)
 

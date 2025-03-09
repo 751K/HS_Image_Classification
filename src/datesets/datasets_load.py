@@ -120,4 +120,6 @@ if __name__ == "__main__":
             print("数据范围:", np.min(data), "-", np.max(data))
             print("标签值:", np.unique(labels))
         except Exception as e:
-            print(f"加载 {dataset_name} 数据集时出错: {str(e)}")
+            import traceback
+            error_msg = f"加载 {dataset_name} 数据集时出错:\n{str(e)}\n{''.join(traceback.format_tb(e.__traceback__))}"
+            print(error_msg)

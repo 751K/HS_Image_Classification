@@ -117,7 +117,9 @@ def run_shap_explanation():
         model.load_state_dict(torch.load(model_path, map_location=device))
         logger.info(f"模型成功加载：{model_path}")
     except Exception as e:
-        logger.error(f"加载模型时发生错误: {e}")
+        import traceback
+        error_msg = f"加载模型时发生错误::\n{str(e)}\n{''.join(traceback.format_tb(e.__traceback__))}"
+        print(error_msg)
         return
 
     model.to(device)
