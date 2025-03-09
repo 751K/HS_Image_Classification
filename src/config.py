@@ -16,7 +16,8 @@ class Config:
         # 获取调用此类的文件名
         caller_frame = inspect.stack()[1]
         caller_filename = os.path.basename(caller_frame.filename)
-        # torch.backends.cudnn.benchmark = True
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
         self.num_epochs = 50
         self.device = get_device()

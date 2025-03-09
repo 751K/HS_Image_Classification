@@ -11,10 +11,9 @@ import numpy as np
 import torch.optim as optim
 
 from torch.utils.tensorboard import SummaryWriter
-from Train_and_Eval.device import get_device
 from Train_and_Eval.learing_rate import WarmupCosineSchedule
 from Train_and_Eval.log import setup_logger
-from Train_and_Eval.model import save_model, save_test_results, set_seed
+from Train_and_Eval.model import save_test_results, set_seed
 from config import Config
 from datesets.Dataset import prepare_data, create_three_loader
 from model_init import create_model
@@ -108,7 +107,7 @@ def main():
         logger.info("模型训练完成")
         # 保存最佳模型
         model_save_path = os.path.join(config.save_dir, "best_model.pth")
-        save_model(best_model_state_dict, model_save_path)
+        torch.save(best_model_state_dict, model_save_path)
         logger.info(f"最佳模型已保存到: {model_save_path}")
 
         # 评估模型

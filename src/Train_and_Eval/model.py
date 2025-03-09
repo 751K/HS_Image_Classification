@@ -19,20 +19,6 @@ def set_seed(seed):
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-
-
-def save_model(state_dict, path):
-    """
-    保存模型的状态字典。
-
-    Args:
-        state_dict (dict): 模型的状态字典。
-        path (str): 保存路径。
-        logger: logger
-    """
-    torch.save(state_dict, path)
 
 
 def save_test_results(all_preds, all_labels, accuracy, classification_report, path, logger):
