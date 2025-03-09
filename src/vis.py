@@ -21,7 +21,7 @@ if __name__ == "__main__":
 
     model = create_model(config.model_name,
                          input_channels=data.shape[-1],
-                         num_classes=len(np.unique(labels)),
+                         num_classes=len(np.unique(labels))-1,
                          patch_size=config.patch_size)
 
     device = get_device()
