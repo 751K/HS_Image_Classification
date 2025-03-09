@@ -114,18 +114,22 @@ if __name__ == "__main__":
     print(f"数据加载完成，耗时: {end_time - start_time:.2f} 秒")
 
     # UMAP降维
-    n_components = 30
+    n_components = 60
     reduced_data = spectral_umap_reduction(data, n_components=n_components)
+    import scipy.io as sio
+
+    sio.savemat('reduced_data.mat', {'reduced_data': reduced_data})
+    print("降维后的数据已保存为 reduced_data.mat")
 
     # 计算评估指标
-    original_2d = data.reshape(-1, data.shape[-1])
-    reduced_2d = reduced_data.reshape(-1, n_components)
-    metrics = compute_evaluation_metrics(original_2d, reduced_2d)
-
-    print("原始数据形状:", data.shape)
-    print("降维后的数据形状:", reduced_data.shape)
-    print(f"相关系数: {metrics['correlation']:.4f}")
-    print(f"可信度: {metrics['trustworthiness']:.4f}")
-
-    # 绘制并保存图像
-    plot_spectra(data, reduced_data)
+    # original_2d = data.reshape(-1, data.shape[-1])
+    # reduced_2d = reduced_data.reshape(-1, n_components)
+    # metrics = compute_evaluation_metrics(original_2d, reduced_2d)
+    #
+    # print("原始数据形状:", data.shape)
+    # print("降维后的数据形状:", reduced_data.shape)
+    # print(f"相关系数: {metrics['correlation']:.4f}")
+    # print(f"可信度: {metrics['trustworthiness']:.4f}")
+    #
+    # # 绘制并保存图像
+    # plot_spectra(data, reduced_data)

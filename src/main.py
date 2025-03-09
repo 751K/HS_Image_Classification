@@ -1,5 +1,6 @@
 # main.py
 import os
+
 os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
 import sys
 import torch
@@ -8,7 +9,6 @@ import numpy as np
 import torch.optim as optim
 
 from torch.utils.tensorboard import SummaryWriter
-
 from Train_and_Eval.device import get_device
 from Train_and_Eval.learing_rate import WarmupCosineSchedule
 from Train_and_Eval.log import setup_logger
@@ -62,22 +62,24 @@ def main():
         logger.info(f"模型创建完成：{config.model_name}")
 
         # 准备数据
-        X_train, y_train, X_test, y_test = prepare_data(data, labels, test_size=config.test_size,
-                                                        dim=model.dim, patch_size=config.patch_size,
-                                                        random_state=config.seed)
+        X_train, y_train, X_test, y_test, X_val, y_val = prepare_data(data, labels, test_size=config.test_size,
+                                                                      dim=model.dim, patch_size=config.patch_size,
+                                                                      random_state=config.seed)
         logger.info(f"训练集尺寸: {X_train.shape}")
         logger.info(f"测试集尺寸: {X_test.shape}")
+        logger.info(f'验证集尺寸: {X_val.shape}')
         logger.info("数据预处理完成")
-        train_loader, test_loader = create_data_loaders(
+        train_loader, test_loader, val_loader = create_data_loaders(
             X_train, y_train, X_test, y_test, config.batch_size, config.num_workers,
-            dim=model.dim, logger=logger
+            dim=model.dim, logger=logger, X_val=X_val, y_val=y_val
         )
         logger.info("Dataloader创建完成")
 
         # 设置训练参数
-        # criterion = nn.CrossEntropyLoss(label_smoothing=config.label_smoothing)
         criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)
+
+        optimizer = optim.AdamW(model.parameters(), lr=config.learning_rate, weight_decay=0.01)
+        # optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)learning_rateΩ
 
         total_steps = config.num_epochs * len(train_loader)
         scheduler = WarmupCosineSchedule(optimizer, config.warmup_steps, total_steps)
@@ -98,7 +100,7 @@ def main():
 
         # 训练模型
         logger.info("开始训练模型...")
-        best_model_state_dict = train_model(model, train_loader, test_loader, criterion, optimizer, scheduler,
+        best_model_state_dict = train_model(model, train_loader, val_loader, criterion, optimizer, scheduler,
                                             config.num_epochs, device, writer, logger, start_epoch, config)
         logger.info("模型训练完成")
         # 保存最佳模型
@@ -109,6 +111,7 @@ def main():
         # 评估模型
         if config.test_mode is not True:
             model.load_state_dict(best_model_state_dict)
+        logger.info('测试集评估中...')
         avg_loss, accuracy, all_preds, all_labels = evaluate_model(model, test_loader, criterion,
                                                                    device, logger, class_result=True)
 
@@ -131,6 +134,7 @@ def main():
         error_msg = f"程序执行过程中发生错误:\n{str(e)}\n{''.join(traceback.format_tb(e.__traceback__))}"
         print(error_msg)
         sys.exit(1)
+
 
 if __name__ == '__main__':
     main()

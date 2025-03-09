@@ -1,10 +1,10 @@
 # config.py
+import torch
 import inspect
 import os
 import sys
 from datetime import datetime
 
-import torch
 from sympy import false
 
 from src.model_init import AVAILABLE_MODELS
@@ -12,31 +12,33 @@ from src.model_init import AVAILABLE_MODELS
 
 class Config:
     def __init__(self):
-        self.test_mode = false
+        self.test_mode = False
 
         # 获取调用此类的文件名
         caller_frame = inspect.stack()[1]
         caller_filename = os.path.basename(caller_frame.filename)
         # torch.backends.cudnn.benchmark = True
 
+        self.num_epochs = 60
+
         if caller_filename == 'main.py' and self.test_mode is not True:
             self.model_name = self.select_model()
-            self.num_epochs = 20
+
         else:
             self.model_name = 'AllinMamba'
-            self.num_epochs = 10
-            # torch.autograd.set_detect_anomaly = True
+            self.num_epochs = 60
+            # torch.autograd.set_detect_anomaly(True)
 
-        self.batch_size = 128
+        self.batch_size = 32
         self.num_workers = 0
         self.warmup_steps = 10
-        self.learning_rate = 0.0003
+        self.learning_rate = 0.0006
 
-        self.test_size = 0.95
+        self.test_size = 0.9
 
-        self.seed = 42
+        self.seed = 3407
         self.datasets = 'Salinas'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana'
-        self.patch_size = 7
+        self.patch_size = 9
 
         # self.resume_checkpoint = '../results/Salinas_AllinMamba_0226_1559/checkpoint_epoch_100.pth'
         self.resume_checkpoint = None
@@ -44,7 +46,7 @@ class Config:
         # 降维相关配置
         self.perform_dim_reduction = True
         self.dim_reduction = 'PCA'  # 可选: 'PCA', 'KernelPCA', 'MDS', 'UMAP'，‘NMF’
-        self.n_components = 64  # 降维后的组件数
+        self.n_components = 80  # 降维后的组件数
         self.pca_whiten = False
         self.kpca_kernel = 'rbf'
         self.kpca_gamma = None
@@ -54,8 +56,8 @@ class Config:
         self.umap_min_dist = 0.1
 
         self.stop_train = True
-        self.patience = 10  # 早停的耐心值
-        self.min_delta = 0.005  # 被视为改进的最小变化量
+        self.patience = 20  # 早停的耐心值
+        self.min_delta = 0.0005  # 被视为改进的最小变化量
         if caller_filename == 'main.py':
             self.save_dir = os.path.join("..", "results",
                                          f"{self.datasets}_{self.model_name}_{datetime.now().strftime('%m%d_%H%M')}")

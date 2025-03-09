@@ -73,7 +73,7 @@ class RandomForestHSI:
 if __name__ == '__main__':
     data, labels, dataset_info = load_dataset('Pavia')
     # 准备数据
-    X_train, y_train, X_test, y_test = prepare_data(
+    X_train, y_train, X_test, y_test, X_val, y_val = prepare_data(
         data, labels, test_size=0.95, random_state=42,
         dim=3, patch_size=5
     )

@@ -132,8 +132,8 @@ if __name__ == '__main__':
 
     # 准备数据
     print("Preparing data...")
-    X_train, y_train, X_test, y_test = prepare_data(
-        data, labels, test_size=0.65, random_state=42,
+    X_train, y_train, X_test, y_test, X_val, y_val = prepare_data(
+        data, labels, test_size=0.95, random_state=42,
         dim=3, patch_size=5
     )
 

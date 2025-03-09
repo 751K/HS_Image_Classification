@@ -5,7 +5,6 @@ import torch.nn.functional as F
 from torch import Tensor
 
 from Train_and_Eval.device import get_device
-from datesets.Dataset import prepare_data
 
 
 class ResidualBlock1D(nn.Module):

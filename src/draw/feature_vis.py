@@ -127,7 +127,8 @@ def run_shap_explanation():
     logger.info(f"模型加载完成：{config.model_name}")
 
     # 准备数据
-    X_train, y_train, X_test, y_test = prepare_data(data, labels, dim=model.dim, patch_size=config.patch_size)
+    X_train, y_train, X_test, y_test, X_val, y_val = prepare_data(data, labels, dim=model.dim,
+                                                                  patch_size=config.patch_size)
     logger.info("数据预处理完成")
 
     # 创建背景数据和解释数据的 DataLoader

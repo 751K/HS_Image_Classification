@@ -32,7 +32,7 @@ def visualize_classification(model, data, labels, device, config, class_names, l
 
     height, width, channels = data.shape
     # data:Original data shape: (512, 217, 80)
-    X, y, _, _ = prepare_data(data, labels, test_size=1, dim=model.dim, patch_size=config.patch_size)
+    X, y, _, _, _, _ = prepare_data(data, labels, test_size=1, dim=model.dim, patch_size=config.patch_size)
     all_dataset = HSIDataset(X, y, model.dim)
     all_dataloader = DataLoader(all_dataset, batch_size=config.batch_size, shuffle=False, num_workers=0)
 
@@ -44,7 +44,7 @@ def visualize_classification(model, data, labels, device, config, class_names, l
         print("开始全图推理")
 
     with torch.no_grad():
-        for inputs, batch_labels in all_dataloader:
+        for inputs, batch_labels in tqdm(all_dataloader, desc="Inferencing", leave=False):
             inputs = inputs.to(device)
             outputs = model(inputs)
 

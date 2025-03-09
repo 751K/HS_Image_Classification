@@ -1,9 +1,10 @@
 from typing import List, Union, Dict
 import numpy as np
 import torch
+from torch.optim.lr_scheduler import _LRScheduler
 
 
-class WarmupCosineSchedule:
+class WarmupCosineSchedule(_LRScheduler):
     """
     实现带有预热阶段的余弦学习率调度。
 
@@ -31,10 +32,7 @@ class WarmupCosineSchedule:
         self.warmup_steps = warmup_steps
         self.t_total = t_total
         self.cycles = cycles
-        self.optimizer = optimizer
-        self.base_lrs = [group['lr'] for group in optimizer.param_groups]
-        self.last_epoch = last_epoch
-        self.step(self.last_epoch + 1)
+        super().__init__(optimizer, last_epoch)
 
     def get_lr(self) -> List[float]:
         """
@@ -44,9 +42,12 @@ class WarmupCosineSchedule:
             List[float]: 当前步骤的学习率列表。
         """
         if self.last_epoch < self.warmup_steps:
-            return [(float(self.last_epoch) / float(max(1, self.warmup_steps))) * lr for lr in self.base_lrs]
-        progress = float(self.last_epoch - self.warmup_steps) / float(max(1, self.t_total - self.warmup_steps))
-        return [lr * (0.5 * (1. + np.cos(np.pi * float(self.cycles) * 2.0 * progress))) for lr in self.base_lrs]
+            warmup_factor = float(self.last_epoch) / float(max(1, self.warmup_steps))
+            return [warmup_factor * lr for lr in self.base_lrs]
+        else:
+            progress = float(self.last_epoch - self.warmup_steps) / float(max(1, self.t_total - self.warmup_steps))
+            cosine_factor = 0.5 * (1.0 + np.cos(np.pi * float(self.cycles) * 2.0 * progress))
+            return [lr * cosine_factor for lr in self.base_lrs]
 
     def step(self, epoch: Union[int, None] = None) -> None:
         """

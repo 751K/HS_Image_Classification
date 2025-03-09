@@ -188,7 +188,7 @@ if __name__ == "__main__":
     d_model = 512
     # d_state：状态空间模型中的状态维度（64）。
     d_state = 64
-    # expand：扩展因子，用于计算内部隐藏维度 d_inner = expand * d_model。
+    # expand：扩展因子，用于计算内部隐藏维度 d_inner = expand * d_model
     expand = 2
     # headdim：每个 head 的维度（64），head 数量 = d_inner / headdim。
     headdim = 64

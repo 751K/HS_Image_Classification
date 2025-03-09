@@ -3,7 +3,7 @@ import torch
 from src.Train_and_Eval.eval import evaluate_model
 
 
-def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler, num_epochs, device, writer, logger,
+def train_model(model, train_loader, test_loader, criterion, optimizer, scheduler, num_epochs, device, writer, logger,
                 start_epoch=0, config=None):
     """
     训练模型并在验证集上评估。
@@ -11,7 +11,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
     Args:
         model (torch.nn.Module): 要训练的神经网络模型。
         train_loader (torch.utils.data.DataLoader): 包含训练数据的 DataLoader。
-        val_loader (torch.utils.data.DataLoader): 包含验证数据的 DataLoader。
+        test_loader (torch.utils.data.DataLoader): 包含测试数据的 DataLoader。
         criterion (torch.nn.Module): 损失函数。
         optimizer (torch.optim.Optimizer): 优化器。
         scheduler (torch.optim.lr_scheduler._LRScheduler): 学习率调度器。
@@ -63,7 +63,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
         epoch_loss = running_loss / len(train_loader.dataset)
         epoch_acc = correct / total
 
-        test_loss, metrix, _, _ = evaluate_model(model, val_loader, criterion, device, logger, class_result=False)
+        test_loss, metrix, _, _ = evaluate_model(model, test_loader, criterion, device, logger, class_result=False)
         test_accuracy, aa, kappa = metrix
         
         writer.add_scalar('Loss/train', epoch_loss, epoch)
