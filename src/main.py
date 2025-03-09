@@ -12,7 +12,7 @@ import torch.optim as optim
 
 from torch.utils.tensorboard import SummaryWriter
 from Train_and_Eval.learing_rate import WarmupCosineSchedule
-from Train_and_Eval.log import setup_logger
+from Train_and_Eval.log import setup_logger, log_training_details
 from Train_and_Eval.model import save_test_results, set_seed
 from config import Config
 from datesets.Dataset import prepare_data, create_three_loader
@@ -39,11 +39,12 @@ def main():
         logger.info("程序开始执行")
 
         logger.info(f"使用模型: {config.model_name}")
-        logger.info(
-            f"配置参数：epochs={config.num_epochs}, batch_size={config.batch_size}, num_workers={config.num_workers}")
-
+        log_training_details(logger, config)
         device = config.device
         logger.info('使用设备: {}'.format(device))
+
+        if device == 'mps':
+            logger.warning("MPS设备可能会导致不稳定的训练结果，请注意。")
 
         # 加载和准备数据
         data, labels, dataset_info = load_dataset(config.datasets, logger)
