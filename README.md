@@ -54,9 +54,11 @@
 | SSMamba           | Mamba       | `src.MambaBase.SSMamba`                 |
 | MSAFMamba         | Mamba       | `src.MambaBase.MSAFMamba`               |
 
+_模型实现仅供参考，具体的实现细节和参数设置可能会有所不同。请根据实际需求与论文进行对比和调整。_
 ### 模型拓展
 如果需要使用其他模型，请在`src/CNNBase/`、`src/TransformerBase/`、`src/MambaBase/`下添加新的模型实现，并在`src/config.py`中配置使用的模型。
 注意，需要在对应的目录的`__init__.py`文件中完成模型导入
+
 ## 3.文件说明
 
    ```
