@@ -19,7 +19,7 @@ class Config:
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
-        self.num_epochs = 50
+        self.num_epochs = 60
         self.device = get_device()
 
         if caller_filename == 'main.py' and self.test_mode is not True:
@@ -27,7 +27,7 @@ class Config:
 
         else:
             self.model_name = 'AllinMamba'
-            self.num_epochs = 2
+            self.num_epochs = 100
             # torch.autograd.set_detect_anomaly(True)
 
         self.batch_size = 32
@@ -35,10 +35,10 @@ class Config:
         self.warmup_steps = 10
         self.learning_rate = 0.0006
 
-        self.test_size = 0.9
+        self.test_size = 0.95
 
         self.seed = 3407
-        self.datasets = 'Pavia'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana'
+        self.datasets = 'Salinas'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana'
         self.patch_size = 9
 
         self.resume_checkpoint = None
