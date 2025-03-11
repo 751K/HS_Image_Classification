@@ -70,7 +70,7 @@ def visualize_classification(model, data, label, device, config, logger=None):
         aa = np.mean(class_accuracies)
         kappa = cohen_kappa_score(all_labels, all_preds)
 
-        logger.info(" 总体准确率(OA): %.4f", oa)
+        logger.info("总体准确率(OA): %.4f", oa)
         logger.info("平均准确率 (AA): %.4f", aa)
         logger.info("Kappa 系数: %.4f", kappa)
         logger.info('开始绘图')
