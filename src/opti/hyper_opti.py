@@ -3,23 +3,23 @@
 import os
 import optuna
 import torch.nn as nn
+import numpy as np
 import torch.optim as optim
 from optuna import Trial
 from torch.utils.tensorboard import SummaryWriter
 
-from MambaBase import AllinMamba
-from Train_and_Eval.device import get_device
-from Train_and_Eval.log import setup_logger
-from Train_and_Eval.model import set_seed
-from config import Config
-from datesets.datasets_load import load_dataset
-from Dim.api import apply_dimension_reduction
-from datesets.Dataset import prepare_data, HSIDataset
-from Train_and_Eval.learing_rate import WarmupCosineSchedule
-from Train_and_Eval.train import train_model
-from Train_and_Eval.eval import evaluate_model
+from src.MambaBase import AllinMamba
+from src.Train_and_Eval.device import get_device
+from src.Train_and_Eval.log import setup_logger
+from src.Train_and_Eval.model import set_seed
+from src.config import Config
+from src.datesets.datasets_load import load_dataset
+from src.Dim.api import apply_dimension_reduction
+from src.datesets.Dataset import prepare_data, HSIDataset
+from src.Train_and_Eval.learing_rate import WarmupCosineSchedule
+from src.Train_and_Eval.train import train_model
+from src.Train_and_Eval.eval import evaluate_model
 from torch.utils.data import DataLoader
-import numpy as np
 
 
 def create_data_loaders_for_optimization(X_train, y_train, X_val, y_val, batch_size, num_workers, dim=1, logger=None):
@@ -111,15 +111,15 @@ def objective(trial: Trial, config, logger, data, labels, num_classes, input_cha
     """
 
     # 超参数搜索空间
-    learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-2, log=True)  # 学习率范围
+    learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-3, log=True)  # 学习率范围
     batch_size = trial.suggest_categorical('batch_size', [16, 32, 64, 128])  # 批大小选择
-    patch_size = trial.suggest_int('patch_size', 3, 9, step=2)  # 补丁大小
+    patch_size = trial.suggest_int('patch_size', 3, 11, step=2)  # 补丁大小
     depth = trial.suggest_int('depth', 1, 2)  # 网络深度
-    feature_dim = trial.suggest_categorical('feature_dim', [32, 64, 128])  # 特征维度
-    mlp_dim = trial.suggest_categorical('mlp_dim', [32, 64, 128])  # MLP维度
+    feature_dim = trial.suggest_categorical('feature_dim', [16, 32, 64, 128])  # 特征维度
+    mlp_dim = trial.suggest_categorical('mlp_dim', [16, 32, 64, 128])  # MLP维度
     dropout = trial.suggest_float('dropout', 0.1, 0.4)  # Dropout率
-    d_state = trial.suggest_int('d_state', 16, 64, step=16)  # Mamba状态维度
-    expand = trial.suggest_int('expand', 4, 8, step=4)  # 扩展因子
+    d_state = trial.suggest_categorical('d_state', [16, 32, 48, 64, 80])  # Mamba状态维度
+    expand = trial.suggest_categorical('expand', [4, 8])  # 扩展因子
 
     set_seed(config.seed)
 
