@@ -2,7 +2,7 @@
 import os
 import pickle
 
-os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
+# os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
 
 import sys
 import torch
@@ -44,7 +44,7 @@ def main():
         logger.info('使用设备: {}'.format(device))
 
         if device == 'mps':
-            logger.warning("MPS设备可能会导致不稳定的训练结果，请注意。")
+            logger.warning("MPS下训练可能会导致不稳定的训练结果，请注意。")
 
         # 加载和准备数据
         data, labels, dataset_info = load_dataset(config.datasets, logger)
