@@ -113,7 +113,7 @@ def objective(trial: Trial, config, logger, data, labels, num_classes, input_cha
     # 超参数搜索空间
     learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-3, log=True)  # 学习率范围
     batch_size = trial.suggest_categorical('batch_size', [16, 32, 64, 128])  # 批大小选择
-    patch_size = trial.suggest_int('patch_size', 3, 11, step=2)  # 补丁大小
+    patch_size = trial.suggest_int('patch_size', 3, 9, step=2)  # 补丁大小
     depth = trial.suggest_int('depth', 1, 2)  # 网络深度
     feature_dim = trial.suggest_categorical('feature_dim', [16, 32, 64, 128])  # 特征维度
     mlp_dim = trial.suggest_categorical('mlp_dim', [16, 32, 64, 128])  # MLP维度
@@ -132,7 +132,8 @@ def objective(trial: Trial, config, logger, data, labels, num_classes, input_cha
     model.to(device)
 
     # 数据准备
-    X_train, y_train, X_test, y_test, X_val, y_val = prepare_data(data, labels, dim=model.dim, patch_size=patch_size)
+    X_train, y_train, X_test, y_test, X_val, y_val = prepare_data(data, labels, test_size=config.test_size,
+                                                                  dim=model.dim, patch_size=patch_size)
     logger.info(
         f"准备的数据集形状: X_train: {X_train.shape}, y_train: {y_train.shape}, X_test: {X_test.shape}, y_test: {y_test.shape}")
 
@@ -149,7 +150,7 @@ def objective(trial: Trial, config, logger, data, labels, num_classes, input_cha
     scheduler = WarmupCosineSchedule(optimizer, config.warmup_steps, total_steps)
 
     # 创建 TensorBoard 记录器
-    writer = SummaryWriter(log_dir=os.path.join(config.sa65ve_dir, f'optuna_trial_{trial.number}'))
+    writer = SummaryWriter(log_dir=os.path.join(config.save_dir, f'optuna_trial_{trial.number}'))
 
     # 训练模型
     best_model_state_dict = train_model(model, train_loader, val_loader, criterion, optimizer, scheduler,

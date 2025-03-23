@@ -4,9 +4,9 @@ import torch.nn as nn
 from typing import Callable
 from timm.layers import DropPath
 from functools import partial
+from Mamba2 import Mamba2 as Mamba
 
 from Train_and_Eval.device import get_device
-from src.MambaBase.SSM import SSM
 
 
 def get_1d_sincos_pos_embed_from_grid(embed_dim, pos):
@@ -79,8 +79,7 @@ class block_1D(nn.Module):
     ):
         super().__init__()
         self.ln_1 = norm_layer(hidden_dim)
-
-        self.self_attention = SSM(d_model=hidden_dim, dropout=attn_drop_rate, d_state=d_state, **kwargs)
+        self.self_attention = Mamba(d_model=hidden_dim, d_state=d_state)
         self.drop_path = DropPath(drop_path)
         self.bi = bi
         self.cls = cls
@@ -329,7 +328,7 @@ if __name__ == "__main__":
     model = model.to(device)
 
     # 测试不同输入尺寸
-    test_sizes = [(3, 3), (5, 5), (7, 7), (9, 9)]
+    test_sizes = [(9, 9)]
 
     for size in test_sizes:
         H, W = size

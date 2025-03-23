@@ -15,6 +15,9 @@ import math
 import torch
 from torch import nn
 # from mamba_ssm import Mamba
+# from Mamba1 import Mamba1 as Mamba
+from Mamba2 import Mamba2 as Mamba
+from Train_and_Eval.device import get_device
 
 
 class SpeMamba(nn.Module):
@@ -269,7 +272,7 @@ if __name__ == "__main__":
 
     model = MambaHSI(input_channels=in_channels, hidden_dim=64, num_classes=num_classes, mamba_type='both')
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = get_device()
     print(f"Using device: {device}")
 
     model = model.to(device)

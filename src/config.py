@@ -17,7 +17,7 @@ class Config:
         caller_frame = inspect.stack()[1]
         caller_filename = os.path.basename(caller_frame.filename)
         torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.benchmark = True
 
         self.num_epochs = 60
         self.device = get_device()
@@ -27,19 +27,19 @@ class Config:
 
         else:
             self.model_name = 'AllinMamba'
-            self.num_epochs = 100
+            self.num_epochs = 60
             # torch.autograd.set_detect_anomaly(True)
 
-        self.batch_size = 32
+        self.batch_size = 128
         self.num_workers = 0
         self.warmup_steps = 10
-        self.learning_rate = 0.0006
+        self.learning_rate = 0.0006716351350049811
 
         self.test_size = 0.95
 
         self.seed = 3407
-        self.datasets = 'Salinas'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana'
-        self.patch_size = 9
+        self.datasets = 'Pavia'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana'
+        self.patch_size = 5
 
         self.resume_checkpoint = None
         # self.resume_checkpoint = '../results/Salinas_AllinMamba_0309_1804/checkpoint_epoch_40.pth'

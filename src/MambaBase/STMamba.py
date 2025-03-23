@@ -80,47 +80,58 @@ class S6_noC(nn.Module):
 
         self.state_dim = d_model
 
-        self.LN_B = nn.Linear(d_model, d_model)  # 2*
+        self.LN_B = nn.Linear(d_model, d_model)
         self.LN_C = nn.Linear(d_model, d_model)
-        self.LN_delta = nn.Linear(d_model, d_model)  #
+        self.LN_delta = nn.Linear(d_model, d_model)
 
-        self.delta = nn.Parameter(torch.zeros(1, seq_len, d_model))  # [L D]
-        nn.init.xavier_normal_(self.delta)  # yes
+        self.delta = nn.Parameter(torch.zeros(1, seq_len, d_model))  # [1, L, D]
+        nn.init.xavier_normal_(self.delta)
 
-        self.A = nn.Parameter(torch.zeros(seq_len, d_model))  # [D,N]
-        nn.init.xavier_normal_(self.A)  # yes
+        self.A = nn.Parameter(torch.zeros(seq_len, d_model))  # [L, D]
+        nn.init.xavier_normal_(self.A)
         self.ST = SToken(d_model)
 
         self.Sigmoid = nn.Sigmoid()
 
-    def forward(self, x):  # A,B:[B,L,N,N] C:[B,L,N] X:[B,L,D]    N是隐藏层维度N << S
+    def forward(self, x):
+        """
+        前向传播函数
 
+        Args:
+            x: 输入张量，形状为 [B, L, D]
+        """
+        batch_size, seq_len, feat_dim = x.shape
+
+        # 门控机制
         z = self.Sigmoid(x)
 
-        B_0 = self.LN_B(x)
-        C_ = self.LN_C(x)
+        # 线性变换
+        B_0 = self.LN_B(x)  # [B, L, D]
+        C_ = self.LN_C(x)  # [B, L, D]
 
-        T_ = self.ST(x)  # [B L D]
-        delta = self.LN_delta(x)  # [B L D]
-        delta = self.Sigmoid(delta + self.delta)
+        # 特征增强与调制
+        T_ = self.ST(x)  # [B, L, D] - 通过SToken增强特征
+        delta = self.Sigmoid(self.LN_delta(x) + self.delta)  # [B, L, D]
 
-        A_ = torch.einsum('B L D,L D -> B L D', delta, self.A)  # [B L D]
-        B_ = torch.einsum('B L D,B L D->B L D ', delta, B_0)  # [B L D]
+        # 系数矩阵调制 - 使用广播代替einsum
+        A_ = delta * self.A.unsqueeze(0)  # [B, L, D] = [B, L, D] * [1, L, D]
+        B_ = delta * B_0  # [B, L, D]
 
-        output = []
-        # 这里定义的 s 必须手动放到device上，因为后面会用到
-        s = torch.zeros(x.shape[0], x.shape[2]).to(device)  # [b d]
+        # 预分配输出张量
+        x_out = torch.zeros_like(x, device=x.device)
 
-        for t in range(x.shape[1]):
-            s = torch.einsum('B D,B D-> B D', A_[:, t, ], s) + torch.einsum('B D, B D->B D',
-                                                                            B_[:, t, ],
-                                                                            x[:, t, :])  # [batch, D]
+        # 初始状态
+        s = torch.zeros(batch_size, feat_dim, device=x.device)  # [B, D]
 
-            y_pred = torch.einsum('B D,B D-> B D', C_[:, t], s) + T_[:, t, :]
-            output.append(y_pred.unsqueeze(1))
+        # 序列处理循环
+        for t in range(seq_len):
+            # 状态更新 - 使用元素级乘法代替einsum
+            s = A_[:, t] * s + B_[:, t] * x[:, t]  # [B, D]
 
-        # 预测状态
-        x_out = torch.cat(output, dim=1)
+            # 输出预测
+            x_out[:, t] = C_[:, t] * s + T_[:, t]  # [B, D]
+
+        # 应用门控机制
         x_out = x_out * z
 
         return x_out
@@ -134,7 +145,7 @@ class Scan(nn.Module):
     def forward(x):  # [64,21,5,5]
         cen = x.shape[2] // 2  # 5
         x = rearrange(x, 'b c h w -> b h w c')  # [64,5,5,21]
-        x_out = torch.zeros(x.shape[0], x.shape[1] * x.shape[2], x.shape[3]).to(device)  # [64,25,21]
+        x_out = torch.zeros(x.shape[0], x.shape[1] * x.shape[2], x.shape[3]).to(x.device)  # [64,25,21]
         x_out[:, 0, :] = x[:, cen, cen, :]
 
         assignments_map = {

@@ -30,8 +30,8 @@ def silu(x):
 # Mamba2 定义（加入卷积操作版本）
 # -----------------------------
 class Mamba2(nn.Module):
-    def __init__(self, d_model: int, d_state: int, headdim: int, chunk_size: int = 2, expand: int = 2,
-                 device: str = 'mps', d_conv: int = 4):
+    def __init__(self, d_model: int, d_state: int, headdim: int = 16, chunk_size: int = 2,
+                 expand: int = 2, d_conv: int = 4):
         super().__init__()
         self.d_model = d_model
         self.d_inner = expand * d_model
@@ -39,11 +39,11 @@ class Mamba2(nn.Module):
         self.d_state = d_state
         self.headdim = headdim
         self.chunk_size = chunk_size
-        self.device = device
+        self.device = get_device()
 
         # in_proj: 将输入投影到 (z, x, B, C, dt)
         d_in_proj = 2 * self.d_inner + 2 * self.d_state + self.nheads
-        self.in_proj = nn.Linear(d_model, d_in_proj, bias=False, device=device)
+        self.in_proj = nn.Linear(d_model, d_in_proj, bias=False, device=self.device)
 
         # 增加卷积层，对 xBC 进行局部卷积处理
         # 输入通道数为 d_inner + 2*d_state，使用分组卷积，每个通道独立
@@ -54,14 +54,14 @@ class Mamba2(nn.Module):
             kernel_size=self.d_conv,
             groups=self.d_inner + 2 * self.d_state,
             padding=self.d_conv - 1,
-            device=device,
+            device=self.device,
         )
 
-        self.dt_bias = nn.Parameter(torch.empty(self.nheads, device=device))
-        self.A_log = nn.Parameter(torch.empty(self.nheads, device=device))
-        self.D = nn.Parameter(torch.empty(self.nheads, device=device))
-        self.norm = RMSNorm(self.d_inner, device=device)
-        self.out_proj = nn.Linear(self.d_inner, d_model, bias=False, device=device)
+        self.dt_bias = nn.Parameter(torch.empty(self.nheads, device=self.device))
+        self.A_log = nn.Parameter(torch.empty(self.nheads, device=self.device))
+        self.D = nn.Parameter(torch.empty(self.nheads, device=self.device))
+        self.norm = RMSNorm(self.d_inner, device=self.device)
+        self.out_proj = nn.Linear(self.d_inner, d_model, bias=False, device=self.device)
 
     def forward(self, u: torch.Tensor) -> torch.Tensor:
         """
@@ -181,8 +181,8 @@ def ssd(x, A, B, C, chunk_size, initial_states=None, device=None):
 # 测试代码：测试 Mamba2 模型（重新加入卷积操作）
 # -----------------------------
 if __name__ == "__main__":
-
     device = get_device()
+    print(device)
     # 参数设置：
     # d_model：模型主维度，表示输入嵌入和输出表示的维度（512）。
     d_model = 512
@@ -203,6 +203,7 @@ if __name__ == "__main__":
         d_state=d_state,
         headdim=headdim,
         chunk_size=chunk_size,
+        device=device,
         expand=expand,
     ).to(device)
 

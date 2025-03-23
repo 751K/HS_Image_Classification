@@ -155,6 +155,7 @@ class Mamba1(nn.Module):
 # -----------------------------
 if __name__ == "__main__":
     device = get_device()
+    print(device)
     # 参数设置：
     # d_model: 输入输出的隐藏维度 (512)
     # d_state: 状态空间模型中的状态维度 (64)
