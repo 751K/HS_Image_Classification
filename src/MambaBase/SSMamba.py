@@ -4,9 +4,9 @@ import torch.nn as nn
 from typing import Callable
 from timm.layers import DropPath
 from functools import partial
-from Mamba2 import Mamba2 as Mamba
+from src.MambaBase.Mamba2 import Mamba2 as Mamba
 
-from Train_and_Eval.device import get_device
+from src.Train_and_Eval.device import get_device
 
 
 def get_1d_sincos_pos_embed_from_grid(embed_dim, pos):

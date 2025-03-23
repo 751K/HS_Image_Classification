@@ -16,8 +16,8 @@ import torch
 from torch import nn
 # from mamba_ssm import Mamba
 # from Mamba1 import Mamba1 as Mamba
-from Mamba2 import Mamba2 as Mamba
-from Train_and_Eval.device import get_device
+from src.MambaBase.Mamba2 import Mamba2 as Mamba
+from src.Train_and_Eval.device import get_device
 
 
 class SpeMamba(nn.Module):

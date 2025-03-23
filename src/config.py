@@ -30,7 +30,7 @@ class Config:
             self.num_epochs = 60
             # torch.autograd.set_detect_anomaly(True)
 
-        self.batch_size = 128
+        self.batch_size = 32
         self.num_workers = 0
         self.warmup_steps = 10
         self.learning_rate = 0.0006716351350049811
@@ -38,14 +38,14 @@ class Config:
         self.test_size = 0.95
 
         self.seed = 3407
-        self.datasets = 'Pavia'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana'
-        self.patch_size = 5
+        self.datasets = 'Salinas'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana'
+        self.patch_size = 9
 
         self.resume_checkpoint = None
         # self.resume_checkpoint = '../results/Salinas_AllinMamba_0309_1804/checkpoint_epoch_40.pth'
 
         # 降维相关配置
-        self.perform_dim_reduction = True
+        self.perform_dim_reduction = False
         self.dim_reduction = 'PCA'  # 可选: 'PCA', 'KernelPCA', 'MDS', 'UMAP'，‘NMF’
         self.n_components = 80  # 降维后的组件数
         self.pca_whiten = False

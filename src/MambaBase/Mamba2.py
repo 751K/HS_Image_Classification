@@ -1,4 +1,3 @@
-import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -18,16 +17,12 @@ class RMSNorm(nn.Module):
 
     def forward(self, x, z=None):
         if z is not None:
-            x = x * silu(z)
+            x = x * F.silu(z)
         return x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps) * self.weight
 
 
-def silu(x):
-    return x * F.sigmoid(x)
-
-
 # -----------------------------
-# Mamba2 定义（加入卷积操作版本）
+# Mamba2 定义
 # -----------------------------
 class Mamba2(nn.Module):
     def __init__(self, d_model: int, d_state: int, headdim: int = 16, chunk_size: int = 2,
@@ -57,9 +52,10 @@ class Mamba2(nn.Module):
             device=self.device,
         )
 
-        self.dt_bias = nn.Parameter(torch.empty(self.nheads, device=self.device))
-        self.A_log = nn.Parameter(torch.empty(self.nheads, device=self.device))
-        self.D = nn.Parameter(torch.empty(self.nheads, device=self.device))
+        # 使用合理的初始值初始化参数
+        self.dt_bias = nn.Parameter(torch.zeros(self.nheads, device=self.device))
+        self.A_log = nn.Parameter(torch.randn(self.nheads, device=self.device) * 0.1)
+        self.D = nn.Parameter(torch.ones(self.nheads, device=self.device))
         self.norm = RMSNorm(self.d_inner, device=self.device)
         self.out_proj = nn.Linear(self.d_inner, d_model, bias=False, device=self.device)
 
@@ -73,38 +69,61 @@ class Mamba2(nn.Module):
         # 1. 输入投影与分割
         # u -> (batch, seqlen, d_model)
         zxbcdt = self.in_proj(u)  # (batch, seqlen, d_in_proj)
-        # 分割成三个部分：z, xBC, dt
-        z, xBC, dt = torch.split(zxbcdt, [self.d_inner, self.d_inner + 2 * self.d_state, self.nheads], dim=-1)
+
+        # 分割成三个部分：z, xBC, dt (使用切片代替torch.split减少开销)
+        z = zxbcdt[:, :, :self.d_inner]
+        xBC = zxbcdt[:, :, self.d_inner:self.d_inner + self.d_inner + 2 * self.d_state]
+        dt = zxbcdt[:, :, -self.nheads:]
+
+        # 缓存序列长度，避免重复访问
+        seq_len = u.shape[1]
         dt = F.softplus(dt + self.dt_bias)  # (batch, seqlen, nheads)
 
         # 2. 卷积操作处理 xBC：
         # 先将 xBC 转置到 (batch, channels, seqlen)
-        xBC = xBC.transpose(1, 2)
+        xBC_t = xBC.transpose(1, 2)
         # 经过 conv1d 卷积，再转回 (batch, seqlen, channels) 并截断到原序列长度
-        xBC = self.conv1d(xBC).transpose(1, 2)[:, :u.shape[1], :]
+        xBC = self.conv1d(xBC_t).transpose(1, 2)[:, :seq_len, :]
         # 然后应用激活函数 SiLU
-        xBC = silu(xBC)  # (batch, seqlen, d_inner + 2*d_state)
+        xBC = F.silu(xBC)  # (batch, seqlen, d_inner + 2*d_state)
 
-        # 3. 分割 xBC 得到 x, B, C
-        x, B, C = torch.split(xBC, [self.d_inner, self.d_state, self.d_state], dim=-1)
-        # 将 x 重排为 (batch, seqlen, nheads, headdim) ，满足 d_inner = nheads * headdim
-        x = rearrange(x, "b l (h p) -> b l h p", p=self.headdim)
+        # 3. 分割 xBC 得到 x, B, C (使用切片代替torch.split)
+        x = xBC[:, :, :self.d_inner]
+        B = xBC[:, :, self.d_inner:self.d_inner + self.d_state]
+        C = xBC[:, :, -self.d_state:]
+
+        # 将 x 重排为 (batch, seqlen, nheads, headdim)，使用view更高效
+        x = x.view(x.shape[0], seq_len, self.nheads, self.headdim)
 
         # 4. 调用 SSD 模块
+        # 提前计算 A 值
         A = -torch.exp(self.A_log)  # (nheads,)
+
+        # 提前计算 A*dt 和 x*dt 减少计算量
+        A_dt = A.unsqueeze(0).unsqueeze(0) * dt
+        x_dt = x * dt.unsqueeze(-1)
+
+        # 重排 B 和 C，使用view代替rearrange
+        B_reshaped = B.unsqueeze(2)  # (b l 1 n)
+        C_reshaped = C.unsqueeze(2)  # (b l 1 n)
+
         y = ssd(
-            x=x * dt.unsqueeze(-1),
-            A=A * dt,
-            B=rearrange(B, "b l n -> b l 1 n"),
-            C=rearrange(C, "b l n -> b l 1 n"),
+            x=x_dt,
+            A=A_dt,
+            B=B_reshaped,
+            C=C_reshaped,
             chunk_size=self.chunk_size,
             device=self.device,
         )
 
         # 5. 残差融合：将 SSD 输出与 x 按 head 权重加权融合
-        y = y + x * self.D.unsqueeze(-1)
-        # 重排回 (batch, seqlen, d_inner)
-        y = rearrange(y, "b l h p -> b l (h p)")
+        # 提前展开 D 以减少广播操作
+        D_expanded = self.D.unsqueeze(0).unsqueeze(0).unsqueeze(-1)
+        y = y + x * D_expanded
+
+        # 重排回 (batch, seqlen, d_inner)，使用reshape代替rearrange
+        y = y.reshape(y.shape[0], seq_len, self.d_inner)
+
         # 6. 归一化与线性投影
         y = self.norm(y, z)
         y = self.out_proj(y)
@@ -178,7 +197,7 @@ def ssd(x, A, B, C, chunk_size, initial_states=None, device=None):
 
 
 # -----------------------------
-# 测试代码：测试 Mamba2 模型（重新加入卷积操作）
+# 测试代码：测试 Mamba2 模型
 # -----------------------------
 if __name__ == "__main__":
     device = get_device()
@@ -203,7 +222,6 @@ if __name__ == "__main__":
         d_state=d_state,
         headdim=headdim,
         chunk_size=chunk_size,
-        device=device,
         expand=expand,
     ).to(device)
 
