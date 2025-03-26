@@ -80,10 +80,18 @@ def main():
         # 设置训练参数
         criterion = nn.CrossEntropyLoss()
 
-        optimizer = optim.AdamW(model.parameters(), lr=config.learning_rate, weight_decay=0.01)
+        # 权重更新衰减
+        optimizer = optim.AdamW(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay,betas=
+                                (config.beta1, config.beta2), eps=config.eps)
 
         total_steps = config.num_epochs * len(train_loader)
-        scheduler = WarmupCosineSchedule(optimizer, config.warmup_steps, total_steps)
+        scheduler = WarmupCosineSchedule(
+            optimizer,
+            warmup_steps=int(config.warmup_ratio * total_steps),
+            t_total=total_steps,
+            cycles=config.cycles,
+            min_lr=config.min_lr_ratio * config.learning_rate
+        )
         logger.info("训练参数设置完成")
 
         # 设置TensorBoard
@@ -118,11 +126,12 @@ def main():
 
         # 保存结果和生成可视化
         results_save_path = os.path.join(config.save_dir, "test_results.json")
-        save_test_results(all_preds, all_labels, accuracy, avg_loss, results_save_path, logger)
+        save_test_results(accuracy, results_save_path, logger)
 
         confusion_matrix_save_path = os.path.join(config.save_dir, "confusion_matrix.png")
         plot_and_save_confusion_matrix(all_labels, all_preds, num_classes, confusion_matrix_save_path)
-        visualize_classification(model, data, labels, device, config, logger)
+        if config.vis_enable:
+            visualize_classification(model, data, labels, device, config, logger)
         writer.close()
         logger.info("程序执行完毕")
 

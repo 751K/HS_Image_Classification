@@ -31,7 +31,14 @@ def evaluate_model(model, data_loader, criterion, device, logger, class_result=F
     all_labels = []
 
     with torch.no_grad():
-        for i, (inputs, labels) in enumerate(data_loader):
+        # class_result=True时显示进度条
+        if class_result:
+            from tqdm import tqdm
+            data_iter = tqdm(data_loader, desc="评估中", leave=True)
+        else:
+            data_iter = data_loader
+
+        for i, (inputs, labels) in enumerate(data_iter):
             inputs = inputs.to(device)
             labels = labels.to(device)
 

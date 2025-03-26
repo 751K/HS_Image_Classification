@@ -42,6 +42,11 @@ def apply_dimension_reduction(data, config, logger=None):
                                                random_seed=config.seed)
     elif config.dim_reduction == 'NMF':
         reduced_data, _ = spectral_nmf_reduction(data, n_components=config.n_components)
+    elif config.dim_reduction == 'Concat':
+        reduced_data_pca, _ = spectral_pca_reduction(data, n_components=30)
+        import numpy as np
+        data = spectral_pca_reduction(data, n_components=150)
+        reduced_data = np.concatenate((data, reduced_data_pca), axis=2)
     else:
         raise ValueError(f"Unsupported dimension reduction method: {config.dim_reduction}")
     if logger is not None:

@@ -21,15 +21,12 @@ def set_seed(seed):
         torch.cuda.manual_seed_all(seed)
 
 
-def save_test_results(all_preds, all_labels, accuracy, classification_report, path, logger):
+def save_test_results( accuracy, path, logger):
     """
     保存测试结果。
 
     Args:
-        all_preds (list): 所有预测标签。
-        all_labels (list): 所有真实标签。
         accuracy (float): 测试准确率。
-        classification_report (str): 分类报告。
         path (str): 保存路径。
         logger: logger
     """
@@ -45,12 +42,9 @@ def save_test_results(all_preds, all_labels, accuracy, classification_report, pa
 
     oa, aa, kappa = accuracy
     results = {
-        "predictions": all_preds,
-        "true_labels": all_labels,
         "overall_accuracy": float(oa),
         "average_accuracy": float(aa),
         "kappa": float(kappa),
-        "classification_report": classification_report
     }
 
     with open(path, 'w') as f:

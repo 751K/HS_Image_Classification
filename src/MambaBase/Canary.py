@@ -351,6 +351,145 @@ class Canary_Model(nn.Module):
 
         return x_scan.transpose(1, 2)  # (B, scan_length, hidden_dim)
 
+    def raster_scan(self, x):
+        """
+        栅格扫描函数 - 从左上角开始，逐行扫描像素点
+        Args:
+            x: 输入张量, shape=(B, hidden_dim, H, W)
+        Returns:
+            扫描后的特征, shape=(B, scan_length, hidden_dim)
+        """
+        batch_size, channels = x.shape[0], x.shape[1]
+
+        # 初始化结果张量
+        x_scan = torch.zeros((batch_size, channels, self.scan_length), device=x.device)
+
+        # 设置CLS tokens
+        x_scan[:, :, 0:3] = self.cls_tokens.expand(batch_size, -1, -1)
+
+        # 逐行扫描
+        idx = 3
+        for i in range(self.patch_size):
+            for j in range(self.patch_size):
+                if idx < self.scan_length:
+                    x_scan[:, :, idx] = x[:, :, i, j]
+                    idx += 1
+
+        # 转置维度以匹配输出格式 (B, scan_length, hidden_dim)
+        return x_scan.transpose(1, 2)
+    def spiral_scan(self, x):
+        """
+        螺旋形扫描函数 - 从中心点开始，按照螺旋路径采样点
+        Args:
+            x: 输入张量, shape=(B, hidden_dim, H, W)
+        Returns:
+            螺旋扫描后的特征, shape=(B, scan_length, hidden_dim)
+        """
+        center = self.patch_size // 2
+        batch_size, channels = x.shape[0], x.shape[1]
+
+        # 初始化结果张量
+        x_scan = torch.zeros((batch_size, channels, self.scan_length), device=x.device)
+
+        # 设置中心点
+        x_scan[:, :, 0:3] = self.cls_tokens.expand(batch_size, -1, -1)
+        x_scan[:, :, 3] = x[:, :, center, center]
+
+        # 螺旋方向: 右、下、左、上
+        dirs = [(0, 1), (1, 0), (0, -1), (-1, 0)]
+        current_pos = [center, center]  # 当前位置 [row, col]
+        idx = 4  # 输出索引
+
+        # 每层螺旋的边长，从1开始，每转两圈增加1
+        side_length = 1
+
+        while idx < self.scan_length:
+            for side in range(4):  # 螺旋的四个边
+                dir_row, dir_col = dirs[side]
+
+                # 沿当前方向移动side_length步
+                for _ in range(side_length):
+                    current_pos[0] += dir_row
+                    current_pos[1] += dir_col
+
+                    # 检查是否超出边界
+                    if (0 <= current_pos[0] < self.patch_size and
+                            0 <= current_pos[1] < self.patch_size and
+                            idx < self.scan_length):
+                        x_scan[:, :, idx] = x[:, :, current_pos[0], current_pos[1]]
+                        idx += 1
+
+                # 在完成"右"和"左"方向后增加边长
+                if side == 1 or side == 3:
+                    side_length += 1
+
+                # 如果已填满输出张量，则退出
+                if idx >= self.scan_length:
+                    break
+
+        # 转置维度以匹配输出格式 (B, scan_length, hidden_dim)
+        return x_scan.transpose(1, 2)
+
+    def zigzag_scan(self, x):
+        """
+        Z字形扫描函数 - 类似JPEG压缩中使用的Z字形扫描模式
+        Args:
+            x: 输入张量, shape=(B, hidden_dim, H, W)
+        Returns:
+            扫描后的特征, shape=(B, scan_length, hidden_dim)
+        """
+        batch_size, channels = x.shape[0], x.shape[1]
+        x_scan = torch.zeros((batch_size, channels, self.scan_length), device=x.device)
+
+        # 设置CLS tokens
+        x_scan[:, :, 0:3] = self.cls_tokens.expand(batch_size, -1, -1)
+
+        # 添加中心像素特征作为第四个元素
+        center = self.patch_size // 2
+        x_scan[:, :, 3] = x[:, :, center, center]
+
+        # Z字形扫描
+        idx = 4
+        going_up = True
+
+        for diag in range(2 * self.patch_size - 1):
+            # 确定当前对角线的起始位置
+            if diag < self.patch_size:
+                i_start, j_start = diag, 0
+            else:
+                i_start, j_start = self.patch_size - 1, diag - self.patch_size + 1
+
+            i, j = i_start, j_start
+
+            # 遍历当前对角线
+            while i >= 0 and j < self.patch_size and idx < self.scan_length:
+                if going_up:  # 向上遍历
+                    while i >= 0 and j < self.patch_size and idx < self.scan_length:
+                        x_scan[:, :, idx] = x[:, :, i, j]
+                        idx += 1
+                        i -= 1
+                        j += 1
+                else:  # 向下遍历
+                    while i >= 0 and j < self.patch_size and idx < self.scan_length:
+                        x_scan[:, :, idx] = x[:, :, i, j]
+                        idx += 1
+                        i += 1
+                        j -= 1
+
+                going_up = not going_up
+
+                # 调整下一个起始位置
+                if i < 0 and j < self.patch_size:
+                    i = 0
+                elif j >= self.patch_size:
+                    i = i + 2
+                    j = self.patch_size - 1
+                elif i >= self.patch_size:
+                    j = j + 2
+                    i = self.patch_size - 1
+
+        return x_scan.transpose(1, 2)
+
     def _prepare_data(self, x: torch.Tensor) -> torch.Tensor:
         """数据预处理分发器"""
         if self.data_prep_method == DataPrepMethod.STANDARD:

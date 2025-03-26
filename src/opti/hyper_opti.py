@@ -68,8 +68,12 @@ def create_data_loaders_for_optimization(X_train, y_train, X_val, y_val, batch_s
 
     # 创建数据加载器
     try:
-        train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-        val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+        train_dataloader = DataLoader(train_dataset, batch_size=batch_size,
+                                      shuffle=True, num_workers=num_workers,
+                                      drop_last=True)  # 丢弃最后不完整批次
+        val_dataloader = DataLoader(val_dataset, batch_size=batch_size,
+                                    shuffle=False, num_workers=num_workers,
+                                    drop_last=True)  # 丢弃最后不完整批次
     except Exception as e:
         error_msg = f"Error creating dataloaders: {str(e)}"
         logger.error(error_msg) if logger else print(error_msg)
@@ -111,15 +115,48 @@ def objective(trial: Trial, config, logger, data, labels, num_classes, input_cha
     """
 
     # 超参数搜索空间
-    learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-3, log=True)  # 学习率范围
-    batch_size = trial.suggest_categorical('batch_size', [16, 32, 64, 128])  # 批大小选择
-    patch_size = trial.suggest_int('patch_size', 3, 9, step=2)  # 补丁大小
-    depth = trial.suggest_int('depth', 1, 2)  # 网络深度
+    # batch_size = trial.suggest_categorical('batch_size', [16, 32])  # 批大小选择
+    batch_size = config.batch_size
+    # patch_size = trial.suggest_int('patch_size', 7, 9, step=2)  # 补丁大小
+    patch_size = 9
+    depth = 1
     feature_dim = trial.suggest_categorical('feature_dim', [16, 32, 64, 128])  # 特征维度
     mlp_dim = trial.suggest_categorical('mlp_dim', [16, 32, 64, 128])  # MLP维度
-    dropout = trial.suggest_float('dropout', 0.1, 0.4)  # Dropout率
+    dropout = trial.suggest_float('dropout', 0.1, 0.5)  # Dropout率
     d_state = trial.suggest_categorical('d_state', [16, 32, 48, 64, 80])  # Mamba状态维度
     expand = trial.suggest_categorical('expand', [4, 8])  # 扩展因子
+
+    # batch_size = config.batch_size
+    # patch_size = config.patch_size
+    # depth = 1
+    # feature_dim = 128
+    # mlp_dim = 64
+    # dropout = 0.37
+    # d_state = 16
+    # expand = 4
+
+    # 学习率调度器超参数
+    # learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-3, log=True)  # 学习率范围
+    # warmup_ratio = trial.suggest_float('warmup_ratio', 0.01, 0.2)  # 预热步数占总步数比例
+    # cycles = trial.suggest_float('cycles', 0.3, 1.0)  # 余弦周期
+    # min_lr_ratio = trial.suggest_float('min_lr_ratio', 0.0, 0.2)  # 最小学习率与初始学习率的比例
+    #
+    # weight_decay = trial.suggest_float('weight_decay', 1e-5, 1e-3, log=True)  # 权重衰减范围
+    # beta1 = trial.suggest_float('beta1', 0.8, 0.99)  # Adam beta1 参数
+    # beta2 = trial.suggest_float('beta2', 0.95, 0.999)  # Adam beta2 参数
+    # eps = trial.suggest_float('eps', 1e-8, 1e-6, log=True)  # Adam 数值稳定因子
+
+    # 学习率超参数配置
+    learning_rate = 6.5e-05
+    warmup_ratio = 0.19
+    cycles = 0.31
+    min_lr_ratio = 0.19
+
+    # 优化器超参数配置
+    weight_decay = 9.9e-05
+    beta1 = 0.88
+    beta2 = 0.98
+    eps = 2.5e-07
 
     set_seed(config.seed)
 
@@ -145,9 +182,25 @@ def objective(trial: Trial, config, logger, data, labels, num_classes, input_cha
 
     # 设置训练过程的损失函数、优化器、学习率调度器等
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay,
+                            betas=(beta1, beta2), eps=eps)
+    # 基于优化参数创建调度器
     total_steps = config.num_epochs * len(train_loader)
-    scheduler = WarmupCosineSchedule(optimizer, config.warmup_steps, total_steps)
+    warmup_steps = int(warmup_ratio * total_steps)  # 将比例转换为步数
+    min_lr = min_lr_ratio * learning_rate  # 计算最小学习率
+
+    scheduler = WarmupCosineSchedule(
+        optimizer,
+        warmup_steps=warmup_steps,
+        t_total=total_steps,
+        cycles=cycles,
+        min_lr=min_lr
+    )
+
+    logger.info(f"优化器设置: lr={learning_rate:.2e}, weight_decay={weight_decay:.2e}, "
+                f"betas=({beta1:.4f}, {beta2:.4f}), eps={eps:.2e}")
+    logger.info(f"学习率调度器设置: warmup_steps={warmup_steps}/{total_steps} ({warmup_ratio:.2f}), "
+                f"cycles={cycles}, min_lr={min_lr:.2e} ({min_lr_ratio:.2f}×LR)")
 
     # 创建 TensorBoard 记录器
     writer = SummaryWriter(log_dir=os.path.join(config.save_dir, f'optuna_trial_{trial.number}'))
@@ -168,6 +221,64 @@ def objective(trial: Trial, config, logger, data, labels, num_classes, input_cha
 
     # 返回当前试验的验证准确率，供 Optuna 用来优化
     return oa
+
+
+def plot_lr_schedule(config, best_params, save_path=None):
+    """
+    可视化最佳学习率调度曲线
+
+    Args:
+        config: 配置对象
+        best_params: 最佳参数字典
+        save_path: 保存路径，如果为None则显示图表
+    """
+    import matplotlib.pyplot as plt
+    import torch.optim as optim
+
+    # 创建虚拟模型和优化器
+    dummy_model = nn.Linear(10, 2)
+    optimizer = optim.Adam(dummy_model.parameters(), lr=best_params['learning_rate'])
+
+    # 推断总步数和预热步数
+    # 假设一个批次大小来估计总步数
+    estimated_steps_per_epoch = 100  # 这是一个估计值
+    total_steps = config.num_epochs * estimated_steps_per_epoch
+    warmup_steps = int(best_params['warmup_ratio'] * total_steps)
+    min_lr = best_params['min_lr_ratio'] * best_params['learning_rate']
+
+    # 创建调度器
+    scheduler = WarmupCosineSchedule(
+        optimizer,
+        warmup_steps=warmup_steps,
+        t_total=total_steps,
+        cycles=best_params['cycles'],
+        min_lr=min_lr
+    )
+
+    # 记录学习率
+    lrs = []
+    for i in range(total_steps):
+        lrs.append(optimizer.param_groups[0]['lr'])
+        scheduler.step()
+
+    # 绘图
+    plt.figure(figsize=(10, 5))
+    plt.plot(lrs)
+    plt.title('Learning Rate Schedule')
+    plt.xlabel('Steps')
+    plt.ylabel('Learning Rate')
+    plt.grid(True)
+
+    # 标记预热阶段
+    plt.axvline(x=warmup_steps, color='r', linestyle='--')
+    plt.text(warmup_steps, max(lrs) / 2, f'Warmup End: {warmup_steps} steps',
+             rotation=90, verticalalignment='center')
+
+    if save_path:
+        plt.savefig(save_path)
+    else:
+        plt.show()
+    plt.close()
 
 
 def main():
@@ -206,6 +317,15 @@ def main():
     logger.info("优化后的最佳参数：")
     for key, value in trial.params.items():
         logger.info(f"    {key}: {value}")
+
+    # 可视化最佳学习率调度
+    try:
+        best_params = trial.params.copy()
+        lr_schedule_path = os.path.join(config.save_dir, "best_lr_schedule.png")
+        plot_lr_schedule(config, best_params, save_path=lr_schedule_path)
+        logger.info(f"学习率调度曲线已保存至: {lr_schedule_path}")
+    except Exception as e:
+        logger.error(f"绘制学习率调度曲线时发生错误: {str(e)}")
 
     logger.info("程序执行完毕")
 

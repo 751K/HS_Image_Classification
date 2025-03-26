@@ -11,7 +11,7 @@ from src.model_init import AVAILABLE_MODELS
 
 class Config:
     def __init__(self):
-        self.test_mode = False
+        self.test_mode = True
 
         # 获取调用此类的文件名
         caller_frame = inspect.stack()[1]
@@ -19,7 +19,7 @@ class Config:
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = True
 
-        self.num_epochs = 60
+        self.num_epochs = 80
         self.device = get_device()
 
         if caller_filename == 'main.py' and self.test_mode is not True:
@@ -27,13 +27,23 @@ class Config:
 
         else:
             self.model_name = 'AllinMamba'
-            self.num_epochs = 60
+            self.num_epochs = 80
             # torch.autograd.set_detect_anomaly(True)
 
         self.batch_size = 32
         self.num_workers = 0
-        self.warmup_steps = 10
+
+        # 学习率超参数配置
         self.learning_rate = 0.0006716351350049811
+        self.warmup_ratio = 0.19163467965038367
+        self.cycles = 0.31
+        self.min_lr_ratio = 0.19
+
+        # 优化器超参数配置
+        self.weight_decay = 1e-04
+        self.beta1 = 0.88
+        self.beta2 = 0.98
+        self.eps = 2.5e-07
 
         self.test_size = 0.95
 
@@ -45,8 +55,8 @@ class Config:
         # self.resume_checkpoint = '../results/Salinas_AllinMamba_0309_1804/checkpoint_epoch_40.pth'
 
         # 降维相关配置
-        self.perform_dim_reduction = False
-        self.dim_reduction = 'PCA'  # 可选: 'PCA', 'KernelPCA', 'MDS', 'UMAP'，‘NMF’
+        self.perform_dim_reduction = True
+        self.dim_reduction = 'PCA'  # 可选: 'PCA', 'KernelPCA', 'MDS', 'UMAP'，‘NMF’, 'Concat'
         self.n_components = 80  # 降维后的组件数
         self.pca_whiten = False
         self.kpca_kernel = 'rbf'
@@ -69,7 +79,9 @@ class Config:
 
         self.label_smoothing = 0.08
 
-        self.optuna_trials = 100  # Optuna 试验次数
+        self.optuna_trials = 40  # Optuna 试验次数
+
+        self.vis_enable = False  # 是否可视化
 
     @staticmethod
     def select_model():

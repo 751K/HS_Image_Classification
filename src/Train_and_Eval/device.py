@@ -18,5 +18,6 @@ def get_device():
     else:
         return torch.device('cpu')
 
+
 if __name__ == "__main__":
     print(get_device())

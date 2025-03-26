@@ -2,7 +2,8 @@
 import torch.nn as nn
 
 from Train_and_Eval.device import get_device
-# 下面这行不能删
+
+# Notice: Do not delete the following line
 from src.CNNBase.__init__ import *
 from src.TransformerBase.__init__ import *
 from src.MambaBase.__init__ import *
@@ -52,6 +53,12 @@ def init_weights(m):
                 nn.init.orthogonal_(param)
             elif 'bias' in name:
                 nn.init.constant_(param, 0)
+    elif isinstance(m, (nn.Sequential, nn.ModuleList)):
+        for sub_module in m.children():
+            init_weights(sub_module)
+    elif isinstance(m, nn.Parameter):
+        if m.dim() > 1:
+            nn.init.xavier_uniform_(m)
 
 
 def create_model(model_name, input_channels, num_classes, patch_size=3):

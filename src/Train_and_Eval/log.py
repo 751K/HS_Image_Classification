@@ -50,7 +50,7 @@ def log_training_details(logger: logging.Logger, config) -> None:
     """
     logger.info(
         f"配置参数：epochs={config.num_epochs}, batch_size={config.batch_size}, num_workers={config.num_workers}")
-    logger.info(f"预热步数: {config.warmup_steps}, 学习率: {config.learning_rate}")
+    logger.info(f"预热比例: {config.warmup_ratio}, 学习率: {config.learning_rate}")
     logger.info(f"测试集比例: {config.test_size}")
     logger.info(f"随机种子: {config.seed}, 数据集: {config.datasets}, 衍生块大小: {config.patch_size}")
     logger.info(f'恢复检查点: {config.resume_checkpoint}')
