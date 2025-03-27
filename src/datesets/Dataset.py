@@ -114,7 +114,7 @@ def prepare_data(data: np.ndarray, labels: np.ndarray, test_size: float = 0.9, r
     if test_size == 1:
         return processed_data, processed_labels
     else:
-        val_size = 0.5
+        val_size = min(0.5, 0.05/(1-test_size))  # 确保验证集不超过整个数据集的5%
         train_data, train_labels, test_data, test_labels, val_data, val_labels = (
             spilt_three(processed_data, processed_labels, test_size=test_size, val_size=val_size,
                         random_state=random_state))

@@ -20,6 +20,8 @@ class Config:
         torch.backends.cudnn.benchmark = True
 
         self.num_epochs = 80
+        self.vis_enable = False  # 是否可视化
+
         self.device = get_device()
 
         if caller_filename == 'main.py' and self.test_mode is not True:
@@ -45,10 +47,18 @@ class Config:
         self.beta2 = 0.98
         self.eps = 2.5e-07
 
-        self.test_size = 0.95
-
         self.seed = 3407
         self.datasets = 'Salinas'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana'
+
+        if self.datasets == 'Indian':
+            self.test_size = 0.9
+        elif self.datasets == 'KSC':
+            self.test_size = 0.75
+        elif self.datasets == 'Botswana':
+            self.test_size = 0.65
+        else:
+            self.test_size = 0.95
+
         self.patch_size = 9
 
         self.resume_checkpoint = None
@@ -69,6 +79,7 @@ class Config:
         self.stop_train = True
         self.patience = 20  # 早停的耐心值
         self.min_delta = 0.0005  # 被视为改进的最小变化量
+
         if caller_filename == 'main.py':
             self.save_dir = os.path.join("..", "results",
                                          f"{self.datasets}_{self.model_name}_{datetime.now().strftime('%m%d_%H%M')}")
@@ -77,11 +88,7 @@ class Config:
                                          f"{self.datasets}_{self.model_name}_{datetime.now().strftime('%m%d_%H%M')}")
         os.makedirs(self.save_dir, exist_ok=True)
 
-        self.label_smoothing = 0.08
-
         self.optuna_trials = 40  # Optuna 试验次数
-
-        self.vis_enable = False  # 是否可视化
 
     @staticmethod
     def select_model():
