@@ -32,6 +32,8 @@ class Config:
             self.num_epochs = 80
             # torch.autograd.set_detect_anomaly(True)
 
+        self.datasets = 'Indian'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana'
+
         self.batch_size = 32
         self.num_workers = 0
 
@@ -43,12 +45,8 @@ class Config:
 
         # 优化器超参数配置
         self.weight_decay = 1e-04
-        self.beta1 = 0.88
-        self.beta2 = 0.98
-        self.eps = 2.5e-07
 
         self.seed = 3407
-        self.datasets = 'Salinas'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana'
 
         if self.datasets == 'Indian':
             self.test_size = 0.9
@@ -88,7 +86,7 @@ class Config:
                                          f"{self.datasets}_{self.model_name}_{datetime.now().strftime('%m%d_%H%M')}")
         os.makedirs(self.save_dir, exist_ok=True)
 
-        self.optuna_trials = 40  # Optuna 试验次数
+        self.optuna_trials = 100  # Optuna 试验次数
 
     @staticmethod
     def select_model():
