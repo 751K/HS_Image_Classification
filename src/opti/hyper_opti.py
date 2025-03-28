@@ -115,11 +115,9 @@ def objective(trial: Trial, config, logger, data, labels, num_classes, input_cha
     """
 
     # 超参数搜索空间
-    # batch_size = trial.suggest_categorical('batch_size', [16, 32])  # 批大小选择
-    batch_size = config.batch_size
+    batch_size = trial.suggest_categorical('batch_size', [8, 16, 32])  # 批大小选择
     # patch_size = trial.suggest_int('patch_size', 7, 9, step=2)  # 补丁大小
-    patch_size = 9
-    depth = 1
+
     feature_dim = trial.suggest_categorical('feature_dim', [16, 32, 64, 128])  # 特征维度
     mlp_dim = trial.suggest_categorical('mlp_dim', [16, 32, 64, 128])  # MLP维度
     dropout = trial.suggest_float('dropout', 0.1, 0.5)  # Dropout率
@@ -136,41 +134,26 @@ def objective(trial: Trial, config, logger, data, labels, num_classes, input_cha
     # expand = 4
 
     # 学习率调度器超参数
-    # learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-3, log=True)  # 学习率范围
-    # warmup_ratio = trial.suggest_float('warmup_ratio', 0.01, 0.2)  # 预热步数占总步数比例
-    # cycles = trial.suggest_float('cycles', 0.3, 1.0)  # 余弦周期
-    # min_lr_ratio = trial.suggest_float('min_lr_ratio', 0.0, 0.2)  # 最小学习率与初始学习率的比例
-    #
-    # weight_decay = trial.suggest_float('weight_decay', 1e-5, 1e-3, log=True)  # 权重衰减范围
-    # beta1 = trial.suggest_float('beta1', 0.8, 0.99)  # Adam beta1 参数
-    # beta2 = trial.suggest_float('beta2', 0.95, 0.999)  # Adam beta2 参数
-    # eps = trial.suggest_float('eps', 1e-8, 1e-6, log=True)  # Adam 数值稳定因子
-
-    # 学习率超参数配置
-    learning_rate = 6.5e-05
-    warmup_ratio = 0.19
-    cycles = 0.31
-    min_lr_ratio = 0.19
-
-    # 优化器超参数配置
-    weight_decay = 9.9e-05
-    beta1 = 0.88
-    beta2 = 0.98
-    eps = 2.5e-07
+    learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-3, log=True)  # 学习率范围
+    warmup_ratio = trial.suggest_float('warmup_ratio', 0.01, 0.2)  # 预热步数占总步数比例
+    cycles = trial.suggest_float('cycles', 0.3, 1.0)  # 余弦周期
+    min_lr_ratio = trial.suggest_float('min_lr_ratio', 0.0, 0.2)  # 最小学习率与初始学习率的比例
+    # 优化器衰减系数
+    weight_decay = trial.suggest_float('weight_decay', 1e-5, 1e-3, log=True)  # 权重衰减范围
 
     set_seed(config.seed)
 
     device = get_device()
 
     # 使用Optuna配置的超参数创建模型
-    model = AllinMamba(input_channels=input_channels, num_classes=num_classes, patch_size=patch_size,
-                       depth=depth, feature_dim=feature_dim, mlp_dim=mlp_dim, dropout=dropout,
+    model = AllinMamba(input_channels=input_channels, num_classes=num_classes, patch_size=config.patch_size,
+                       depth=1, feature_dim=feature_dim, mlp_dim=mlp_dim, dropout=dropout,
                        d_state=d_state, expand=expand, mode=2)
     model.to(device)
 
     # 数据准备
     X_train, y_train, X_test, y_test, X_val, y_val = prepare_data(data, labels, test_size=config.test_size,
-                                                                  dim=model.dim, patch_size=patch_size)
+                                                                  dim=model.dim, patch_size=config.patch_size)
     logger.info(
         f"准备的数据集形状: X_train: {X_train.shape}, y_train: {y_train.shape}, X_test: {X_test.shape}, y_test: {y_test.shape}")
 
@@ -182,8 +165,7 @@ def objective(trial: Trial, config, logger, data, labels, num_classes, input_cha
 
     # 设置训练过程的损失函数、优化器、学习率调度器等
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay,
-                            betas=(beta1, beta2), eps=eps)
+    optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     # 基于优化参数创建调度器
     total_steps = config.num_epochs * len(train_loader)
     warmup_steps = int(warmup_ratio * total_steps)  # 将比例转换为步数
@@ -197,8 +179,7 @@ def objective(trial: Trial, config, logger, data, labels, num_classes, input_cha
         min_lr=min_lr
     )
 
-    logger.info(f"优化器设置: lr={learning_rate:.2e}, weight_decay={weight_decay:.2e}, "
-                f"betas=({beta1:.4f}, {beta2:.4f}), eps={eps:.2e}")
+    logger.info(f"优化器设置: lr={learning_rate:.2e}, weight_decay={weight_decay:.2e},")
     logger.info(f"学习率调度器设置: warmup_steps={warmup_steps}/{total_steps} ({warmup_ratio:.2f}), "
                 f"cycles={cycles}, min_lr={min_lr:.2e} ({min_lr_ratio:.2f}×LR)")
 
