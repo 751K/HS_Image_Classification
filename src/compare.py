@@ -72,7 +72,7 @@ def run_experiment(dataset_name, model_name, config_override=None):
         input_channels = data.shape[-1]
 
         # 创建模型
-        model = create_model(config.model_name, input_channels, num_classes, config.patch_size)
+        model = create_model(config.model_name, config)
 
         # 准备数据
         X_train, y_train, X_test, y_test, X_val, y_val = prepare_data(data, labels, test_size=config.test_size,
