@@ -32,30 +32,40 @@ class Config:
             self.num_epochs = 80
             # torch.autograd.set_detect_anomaly(True)
 
-        self.datasets = 'Indian'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana'
+        self.datasets = 'Salinas'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana'
 
         self.batch_size = 32
         self.num_workers = 0
 
         # 学习率超参数配置
-        self.learning_rate = 0.0006716351350049811
-        self.warmup_ratio = 0.19163467965038367
-        self.cycles = 0.31
-        self.min_lr_ratio = 0.19
+        self.learning_rate = 0.0006
+        self.warmup_ratio = 0.02
+        self.cycles = 0.8
+        self.min_lr_ratio = 0.03
 
         # 优化器超参数配置
-        self.weight_decay = 1e-04
+        self.weight_decay = 0.0002
 
         self.seed = 3407
 
         if self.datasets == 'Indian':
-            self.test_size = 0.9
+            self.test_size = 0.85
+            self.num_classes = 16
         elif self.datasets == 'KSC':
             self.test_size = 0.75
+            self.num_classes = 13
         elif self.datasets == 'Botswana':
             self.test_size = 0.65
-        else:
+            self.num_classes = 14
+        elif self.datasets == 'Pavia':
             self.test_size = 0.95
+            self.num_classes = 9
+        elif self.datasets == 'Salinas':
+            self.test_size = 0.95
+            self.num_classes = 16
+        else:
+            raise ValueError(f"Unsupported dataset: {self.datasets}. Supported datasets are: 'Indian', 'Pavia', "
+                             f"'Salinas', 'KSC', 'Botswana'")
 
         self.patch_size = 9
 
@@ -66,6 +76,7 @@ class Config:
         self.perform_dim_reduction = True
         self.dim_reduction = 'PCA'  # 可选: 'PCA', 'KernelPCA', 'MDS', 'UMAP'，‘NMF’, 'Concat'
         self.n_components = 80  # 降维后的组件数
+
         self.pca_whiten = False
         self.kpca_kernel = 'rbf'
         self.kpca_gamma = None
@@ -87,6 +98,13 @@ class Config:
         os.makedirs(self.save_dir, exist_ok=True)
 
         self.optuna_trials = 100  # Optuna 试验次数
+
+        self.dropout = 0.3
+        self.feature_dim = 128
+        self.mlp_dim = 64
+        self.d_state = 16
+        self.expand = 8
+        self.depth = 1
 
     @staticmethod
     def select_model():
