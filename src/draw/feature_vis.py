@@ -111,7 +111,7 @@ def run_shap_explanation():
     input_channels = data.shape[-1]
 
     # 创建模型
-    model = create_model(config.model_name, input_channels, num_classes, config.patch_size)
+    model = create_model(config.model_name, config)
 
     # 加载模型
     try:

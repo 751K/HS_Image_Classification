@@ -19,10 +19,7 @@ if __name__ == "__main__":
     # 创建模型
     data, _ = spectral_pca_reduction(data, n_components=config.n_components)
 
-    model = create_model(config.model_name,
-                         input_channels=data.shape[-1],
-                         num_classes=len(np.unique(labels))-1,
-                         patch_size=config.patch_size)
+    model = create_model(config.model_name, config)
 
     device = get_device()
     model.to(device)
