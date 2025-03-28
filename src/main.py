@@ -81,10 +81,10 @@ def main():
         criterion = nn.CrossEntropyLoss()
 
         # 权重更新衰减
-        optimizer = optim.AdamW(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay,betas=
-                                (config.beta1, config.beta2), eps=config.eps)
+        optimizer = optim.AdamW(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
 
         total_steps = config.num_epochs * len(train_loader)
+
         scheduler = WarmupCosineSchedule(
             optimizer,
             warmup_steps=int(config.warmup_ratio * total_steps),
@@ -92,6 +92,7 @@ def main():
             cycles=config.cycles,
             min_lr=config.min_lr_ratio * config.learning_rate
         )
+
         logger.info("训练参数设置完成")
 
         # 设置TensorBoard
