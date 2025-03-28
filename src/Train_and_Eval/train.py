@@ -49,7 +49,6 @@ def train_model(model, train_loader, test_loader, criterion, optimizer, schedule
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
-            scheduler.step()
 
             running_loss += loss.item() * inputs.size(0)
             _, predicted = torch.max(outputs.data, 1)
@@ -59,13 +58,13 @@ def train_model(model, train_loader, test_loader, criterion, optimizer, schedule
             if i % 100 == 49:
                 logger.info('Epoch [%d/%d], Step [%d/%d], Loss: %.4f',
                             epoch + 1, num_epochs, i + 1, len(train_loader), loss.item())
-
+        scheduler.step()
         epoch_loss = running_loss / len(train_loader.dataset)
         epoch_acc = correct / total
 
         test_loss, metrix, _, _ = evaluate_model(model, test_loader, criterion, device, logger, class_result=False)
         test_accuracy, aa, kappa = metrix
-        
+
         writer.add_scalar('Loss/train', epoch_loss, epoch)
         writer.add_scalar('Accuracy/train', epoch_acc, epoch)
         writer.add_scalar('Loss/val', test_loss, epoch)
