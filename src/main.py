@@ -54,10 +54,9 @@ def main():
 
         # 不包含背景类
         num_classes = len(np.unique(labels)) - 1
-        input_channels = data.shape[-1]
 
         # 创建模型
-        model = create_model(config.model_name, input_channels, num_classes, config.patch_size)
+        model = create_model(config.model_name, config, logger)
 
         logger.info(f"模型创建完成：{config.model_name}")
 
