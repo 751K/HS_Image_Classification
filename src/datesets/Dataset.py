@@ -80,7 +80,7 @@ def reshape_data_1D(data: np.ndarray, labels: np.ndarray):
     return X, y
 
 
-def prepare_data(data: np.ndarray, labels: np.ndarray, test_size: float = 0.9, random_state: int = 42, dim: int = 1,
+def prepare_data(data: np.ndarray, labels: np.ndarray, test_size: float = None, random_state: int = 42, dim: int = 1,
                  patch_size: int = 5):
     """
     准备数据，根据指定的维度进行处理，并划分为训练集、测试集和验证集。
@@ -114,7 +114,7 @@ def prepare_data(data: np.ndarray, labels: np.ndarray, test_size: float = 0.9, r
     if test_size == 1:
         return processed_data, processed_labels
     else:
-        val_size = min(0.5, 0.05/(1-test_size))  # 确保验证集不超过整个数据集的5%
+        val_size = min(0.5, 0.05 / (1 - test_size))  # 确保验证集不超过整个数据集的5%
         train_data, train_labels, test_data, test_labels, val_data, val_labels = (
             spilt_three(processed_data, processed_labels, test_size=test_size, val_size=val_size,
                         random_state=random_state))
