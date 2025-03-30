@@ -2,26 +2,27 @@
 import os
 import json
 import pandas as pd
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
 
-from Train_and_Eval.learing_rate import WarmupCosineSchedule
-from Train_and_Eval.log import setup_logger, log_training_details
-from Train_and_Eval.model import set_seed
+from src.Train_and_Eval.learing_rate import WarmupCosineSchedule
+from src.utils.log import setup_logger, log_training_details
+from src.Train_and_Eval.model import set_seed
 from config import Config
-from datesets.Dataset import prepare_data, create_three_loader
-from model_init import create_model
-from Dim.api import apply_dimension_reduction
-from datesets.datasets_load import load_dataset
+from src.datesets.Dataset import prepare_data, create_three_loader
+from src.model_init import create_model
+from src.Dim.api import apply_dimension_reduction
+from src.datesets.datasets_load import load_dataset
 from src.Train_and_Eval.eval import evaluate_model
 from src.Train_and_Eval.train import train_model
+from src.utils.paths import (get_project_root, ensure_dir, sanitize_filename,
+                             ROOT_DIR, create_experiment_dir, create_comparison_dir, get_file_path)
 
 
-def run_experiment(dataset_name, model_name, config_override=None):
+def run_experiment(dataset_name, model_name):
     """
     针对单个数据集运行实验
     """
@@ -32,25 +33,8 @@ def run_experiment(dataset_name, model_name, config_override=None):
         config.datasets = dataset_name
         config.model_name = model_name
 
-        # 设置适合当前数据集的测试集比例
-        if dataset_name == 'Indian':
-            config.test_size = 0.9
-        elif dataset_name == 'KSC':
-            config.test_size = 0.75
-        elif dataset_name == 'Botswana':
-            config.test_size = 0.65
-        else:
-            config.test_size = 0.95
-
-        # 应用配置覆盖
-        if config_override:
-            for key, value in config_override.items():
-                setattr(config, key, value)
-
         # 设置保存目录
-        config.save_dir = os.path.join("..", "compare_results",
-                                       f"{dataset_name}_{model_name}_{datetime.now().strftime('%m%d_%H%M')}")
-        os.makedirs(config.save_dir, exist_ok=True)
+        config.save_dir = create_comparison_dir(dataset_name, model_name)
 
         # 设置随机种子
         set_seed(config.seed)
@@ -66,10 +50,6 @@ def run_experiment(dataset_name, model_name, config_override=None):
         # 加载和准备数据
         data, labels, dataset_info = load_dataset(config.datasets, logger)
         data = apply_dimension_reduction(data, config, logger)
-
-        # 不包含背景类
-        num_classes = len(np.unique(labels)) - 1
-        input_channels = data.shape[-1]
 
         # 创建模型
         model = create_model(config.model_name, config)
@@ -99,7 +79,9 @@ def run_experiment(dataset_name, model_name, config_override=None):
         )
 
         # 设置TensorBoard
-        writer = SummaryWriter(log_dir=os.path.join(config.save_dir, 'tensorboard'))
+        tensorboard_dir = os.path.join(config.save_dir, 'tensorboard')
+        ensure_dir(tensorboard_dir)
+        writer = SummaryWriter(log_dir=tensorboard_dir)
 
         # 训练模型
         logger.info(f"开始训练模型（数据集: {dataset_name}）...")
@@ -107,7 +89,7 @@ def run_experiment(dataset_name, model_name, config_override=None):
                                             config.num_epochs, device, writer, logger, 0, config)
 
         # 保存最佳模型
-        model_save_path = os.path.join(config.save_dir, "best_model.pth")
+        model_save_path = get_file_path(config.save_dir, "best_model.pth")
         torch.save(best_model_state_dict, model_save_path)
 
         # 评估模型
@@ -129,8 +111,7 @@ def run_experiment(dataset_name, model_name, config_override=None):
             'avg_loss': float(avg_loss),
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
-
-        results_save_path = os.path.join(config.save_dir, "test_results.json")
+        results_save_path = get_file_path(config.save_dir, "test_results.json")
         with open(results_save_path, 'w') as f:
             json.dump(results, f, indent=4)  # type: ignore
 
@@ -158,33 +139,25 @@ def main():
     datasets = ['Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana']
     model_name = 'AllinMamba'  # 可以根据需要更改模型
 
-    # 覆盖默认配置的参数
-    config_override = {
-        'num_epochs': 80,
-        'batch_size': 32,
-        'seed': 3407
-    }
-
     # 保存所有结果
     all_results = []
 
     # 对每个数据集运行实验
     for dataset in datasets:
-        result = run_experiment(dataset, model_name, config_override)
+        result = run_experiment(dataset, model_name)
         if result:
             all_results.append(result)
 
     # 创建比较结果目录
-    compare_dir = os.path.join("..", "compare_results", f"comparison_{datetime.now().strftime('%m%d_%H%M')}")
-    os.makedirs(compare_dir, exist_ok=True)
+    compare_dir = create_comparison_dir()
 
     # 保存汇总结果
     df_results = pd.DataFrame(all_results)
-    csv_path = os.path.join(compare_dir, "comparison_results.csv")
+    csv_path = get_file_path(compare_dir, "comparison_results.csv")
     df_results.to_csv(csv_path, index=False)
 
     # 保存汇总JSON
-    json_path = os.path.join(compare_dir, "comparison_results.json")
+    json_path = get_file_path(compare_dir, "comparison_results.json")
     with open(json_path, 'w') as f:
         json.dump(all_results, f, indent=4)  # type: ignore
 

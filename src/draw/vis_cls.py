@@ -5,12 +5,10 @@ import numpy as np
 import torch
 from matplotlib import pyplot as plt
 from sklearn.metrics import accuracy_score, cohen_kappa_score
-from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from Train_and_Eval.eval import evaluate_model
-from datesets.Dataset import prepare_data, HSIDataset, create_one_loader
-from matplotlib.patches import Patch
+from datesets.Dataset import prepare_data, create_one_loader
+from src.utils.paths import get_project_root, ensure_dir, sanitize_filename
 
 
 def visualize_classification(model, data, label, device, config, logger=None):
@@ -103,32 +101,34 @@ def visualize_classification(model, data, label, device, config, logger=None):
     ax2.set_title('Classification Result')
     ax2.axis('off')
 
-    # 添加颜色条
-    cbar1 = plt.colorbar(im1, ax=ax1, fraction=0.046, pad=0.04)
-    cbar2 = plt.colorbar(im2, ax=ax2, fraction=0.046, pad=0.04)
-
     plt.tight_layout()
 
+    # 优化保存逻辑，确保跨平台兼容
     root_dir = get_project_root()
     pic_dir = os.path.join(root_dir, "Pic")
-    os.makedirs(pic_dir, exist_ok=True)
+    ensure_dir(pic_dir)
 
     timestamp = datetime.now().strftime("%m%d_%H%M%S")
-    filename = f"classification_visualization_{timestamp}.png"
-    save_path = os.path.join(pic_dir, filename)
+    base_filename = f"classification_visualization_{timestamp}.png"
+    # 清理文件名中的非法字符
+    safe_filename = sanitize_filename(base_filename)
+    save_path = os.path.join(pic_dir, safe_filename)
 
-    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    try:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        if logger:
+            logger.info(f"分类可视化结果已保存到: {save_path}")
+        else:
+            print(f"分类可视化结果已保存到: {save_path}")
+    except Exception as e:
+        error_msg = f"保存可视化图片失败: {str(e)}"
+        if logger:
+            logger.error(error_msg)
+        else:
+            print(error_msg)
+
     plt.show()
     plt.close()
-
-
-def get_project_root():
-    """返回项目根目录的路径"""
-    # 获取当前文件（vis.py）的路径
-    current_path = os.path.abspath(__file__)
-
-    # 获取 src 目录的父目录，即项目根目录
-    return os.path.dirname(os.path.dirname(os.path.dirname(current_path)))
 
 
 if __name__ == "__main__":

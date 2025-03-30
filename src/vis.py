@@ -1,7 +1,7 @@
 import os
 import pickle
 from Dim.api import apply_dimension_reduction
-from Train_and_Eval.device import get_device
+from src.utils.device import get_device
 from src.Dim.PCA import spectral_pca_reduction
 from src.config import Config
 import numpy as np

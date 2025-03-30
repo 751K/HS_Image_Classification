@@ -9,14 +9,14 @@ import numpy as np
 import torch.optim as optim
 
 from torch.utils.tensorboard import SummaryWriter
-from Train_and_Eval.learing_rate import WarmupCosineSchedule
-from Train_and_Eval.log import setup_logger, log_training_details
-from Train_and_Eval.model import save_test_results, set_seed
+from src.Train_and_Eval.learing_rate import WarmupCosineSchedule
+from src.utils.log import setup_logger, log_training_details
+from src.Train_and_Eval.model import save_test_results, set_seed
 from config import Config
-from datesets.Dataset import prepare_data, create_three_loader
+from src.datesets.Dataset import prepare_data, create_three_loader
 from model_init import create_model
-from Dim.api import apply_dimension_reduction
-from datesets.datasets_load import load_dataset
+from src.Dim.api import apply_dimension_reduction
+from src.datesets.datasets_load import load_dataset
 from src.Train_and_Eval.eval import evaluate_model
 from src.Train_and_Eval.train import train_model
 from src.vis import visualize_classification
@@ -100,7 +100,8 @@ def main():
         # 检查是否有断点
         start_epoch = 0
         if config.resume_checkpoint:
-            checkpoint = torch.load(config.resume_checkpoint, map_location=device, pickle_module=pickle)
+            checkpoint_path = os.path.normpath(config.resume_checkpoint)
+            checkpoint = torch.load(checkpoint_path, map_location=device, pickle_module=pickle)
             model.load_state_dict(checkpoint['model_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             scheduler.load_state_dict(checkpoint['scheduler_state_dict'])

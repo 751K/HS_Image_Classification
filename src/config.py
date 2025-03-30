@@ -5,8 +5,9 @@ import os
 import sys
 from datetime import datetime
 
-from Train_and_Eval.device import get_device
+from src.utils.device import get_device
 from src.model_init import AVAILABLE_MODELS
+from src.utils.paths import create_experiment_dir
 
 
 class Config:
@@ -32,37 +33,79 @@ class Config:
             self.num_epochs = 80
             # torch.autograd.set_detect_anomaly(True)
 
-        self.datasets = 'Salinas'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana'
+        self.datasets = 'KSC'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana'
 
-        self.batch_size = 32
         self.num_workers = 0
-
-        # 学习率超参数配置
-        self.learning_rate = 0.0006
-        self.warmup_ratio = 0.02
-        self.cycles = 0.8
-        self.min_lr_ratio = 0.03
-
-        # 优化器超参数配置
-        self.weight_decay = 0.0002
 
         self.seed = 3407
 
+        self.feature_dim = 128
+        self.expand = 32
+        self.depth = 1
+        self.dropout = 0.25
+
         if self.datasets == 'Indian':
+            self.batch_size = 32
             self.test_size = 0.85
             self.num_classes = 16
+            self.mlp_dim = 64
+            self.expand = 64
+            self.d_state = 48
+            self.dropout = 0.1824152805122036
+            self.learning_rate = 0.0008420354656015855
+            self.warmup_ratio = 0.06176653864344813
+            self.cycles = 0.5988120910182956
+            self.min_lr_ratio = 0.0468285619606516
+            self.weight_decay = 2.767587061278965e-05
+        elif self.datasets == 'Pavia':
+            self.batch_size = 64
+            self.test_size = 0.95
+            self.num_classes = 9
+            self.mlp_dim = 64
+            self.dropout = 0.41433006712651566
+            self.d_state = 32
+            self.cycles = 0.3092527265390655
+            self.expand = 16
+            self.learning_rate = 0.0002236164386445011
+            self.warmup_ratio = 0.04089041139272309
+            self.min_lr_ratio = 0.082177205991796
+            self.weight_decay = 1.4964546437063115e-05
+        elif self.datasets == 'Salinas':
+            self.batch_size = 32
+            self.mlp_dim = 32
+            self.dropout = 0.129859960550872
+            self.d_state = 64
+            self.cycles = 0.50
+            self.learning_rate = 0.0005144888086719854
+            self.warmup_ratio = 0.010269880544951123
+            self.min_lr_ratio = 0.1855273798968476
+            self.weight_decay = 0.00015654784836898332
+            self.test_size = 0.95
+            self.num_classes = 16
         elif self.datasets == 'KSC':
+            self.batch_size = 32
+            self.mlp_dim = 64
+            self.dropout = 0.47419792880823625
+            self.d_state = 16
+            self.learning_rate = 0.0007942357117505358
+            self.warmup_ratio = 0.018587729415862373
+            self.cycles = 0.5031109547446925
+            self.min_lr_ratio = 0.09210873093398604
+            self.weight_decay = 0.00018084984175502887
             self.test_size = 0.75
             self.num_classes = 13
         elif self.datasets == 'Botswana':
+            self.batch_size = 16
+            self.mlp_dim = 16
+            self.dropout = 0.2654449469982165
+            self.d_state = 64
+            self.learning_rate = 0.00041645493840305884
+            self.warmup_ratio = 0.010097737876680557
+            self.cycles = 0.5004982345432989
+            self.min_lr_ratio = 0.0828985932694622
+            self.weight_decay = 0.0004960078104701533
             self.test_size = 0.65
             self.num_classes = 14
-        elif self.datasets == 'Pavia':
-            self.test_size = 0.95
-            self.num_classes = 9
-        elif self.datasets == 'Salinas':
-            self.test_size = 0.95
-            self.num_classes = 16
         else:
             raise ValueError(f"Unsupported dataset: {self.datasets}. Supported datasets are: 'Indian', 'Pavia', "
                              f"'Salinas', 'KSC', 'Botswana'")
@@ -89,22 +132,14 @@ class Config:
         self.patience = 20  # 早停的耐心值
         self.min_delta = 0.0005  # 被视为改进的最小变化量
 
-        if caller_filename == 'main.py':
-            self.save_dir = os.path.join("..", "results",
-                                         f"{self.datasets}_{self.model_name}_{datetime.now().strftime('%m%d_%H%M')}")
-        else:
-            self.save_dir = os.path.join("...", "test_results",
-                                         f"{self.datasets}_{self.model_name}_{datetime.now().strftime('%m%d_%H%M')}")
-        os.makedirs(self.save_dir, exist_ok=True)
+        # 将原来的路径生成代码替换为：
+        self.save_dir = create_experiment_dir(
+            self.datasets,
+            self.model_name,
+            is_main=(caller_filename == 'main.py' and not self.test_mode)
+        )
 
-        self.optuna_trials = 100  # Optuna 试验次数
-
-        self.dropout = 0.3
-        self.feature_dim = 128
-        self.mlp_dim = 64
-        self.d_state = 16
-        self.expand = 8
-        self.depth = 1
+        self.optuna_trials = 40  # Optuna 试验次数
 
     @staticmethod
     def select_model():

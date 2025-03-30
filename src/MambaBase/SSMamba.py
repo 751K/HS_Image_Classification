@@ -6,7 +6,7 @@ from timm.layers import DropPath
 from functools import partial
 from src.MambaBase.Mamba2 import Mamba2 as Mamba
 
-from src.Train_and_Eval.device import get_device
+from src.utils.device import get_device
 
 
 def get_1d_sincos_pos_embed_from_grid(embed_dim, pos):

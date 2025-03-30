@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from Train_and_Eval.device import get_device
+from src.utils.device import get_device
 
 
 class PatchEmbedding(nn.Module):

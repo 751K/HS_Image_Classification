@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from torch import Tensor
 from torch.nn import init
 
-from Train_and_Eval.device import get_device
+from src.utils.device import get_device
 
 
 class LeeEtAl3D(nn.Module):

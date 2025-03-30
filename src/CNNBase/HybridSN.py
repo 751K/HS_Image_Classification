@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from torch.nn import init
 
-from Train_and_Eval.device import get_device
+from src.utils.device import get_device
 
 
 class HybridSN(nn.Module):

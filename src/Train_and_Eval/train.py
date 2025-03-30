@@ -4,7 +4,7 @@ from src.Train_and_Eval.eval import evaluate_model
 
 
 def train_model(model, train_loader, test_loader, criterion, optimizer, scheduler, num_epochs, device, writer, logger,
-                start_epoch=0, config=None):
+                start_epoch=0, config=None, save_checkpoint=True):
     """
     训练模型并在验证集上评估。
 
@@ -21,6 +21,7 @@ def train_model(model, train_loader, test_loader, criterion, optimizer, schedule
         logger (logging.Logger): 用于记录输出的日志对象。
         start_epoch (int, optional): 开始训练的轮数。用于恢复中断的训练。默认为 0。
         config (object, optional): 包含训练配置的对象，如早停参数等。
+        save_checkpoint (bool, optional): 是否保存模型检查点。默认为 True。
 
     Returns:
         dict: 训练过程中表现最佳的模型状态字典。
@@ -88,7 +89,7 @@ def train_model(model, train_loader, test_loader, criterion, optimizer, schedule
             break
 
         # 每20个epoch保存一次检查点
-        if (epoch + 1) % 20 == 0:
+        if (epoch + 1) % 20 == 0 and save_checkpoint:
             checkpoint = {
                 'epoch': epoch + 1,
                 'model_state_dict': model.state_dict(),

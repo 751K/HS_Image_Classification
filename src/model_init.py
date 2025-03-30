@@ -2,7 +2,7 @@
 import torch.nn as nn
 import inspect
 
-from Train_and_Eval.device import get_device
+from src.utils.device import get_device
 
 # Notice: Do not delete the following line
 from src.CNNBase.__init__ import *

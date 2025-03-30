@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from einops import rearrange
 from torch import nn
 
-from Train_and_Eval.device import get_device
+from src.utils.device import get_device
 
 
 class Residual(nn.Module):
@@ -104,7 +104,7 @@ class Attention(nn.Module):
 
         self.to_qkv = nn.Linear(dim, dim * 3, bias=True)  # 线性变换，将输入转换为query, key, value
         self.output_linear = nn.Linear(dim, dim)
-        self.dropout = nn.Dropout(dropout)
+        self.dropout_layer = nn.Dropout(p=dropout)
 
     def forward(self, x, mask=None):
         """
@@ -117,12 +117,11 @@ class Attention(nn.Module):
         Returns:
             torch.Tensor: 注意力机制的输出，形状与输入相同
         """
-        b, n, _, h = *x.shape, self.heads
+        h = self.heads
         qkv = self.to_qkv(x).chunk(3, dim=-1)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=h), qkv)
 
         dots = torch.einsum('bhid,bhjd->bhij', q, k) * self.scale
-        mask_value = -torch.finfo(dots.dtype).max
 
         if mask is not None:
             mask = F.pad(mask.flatten(1), (1, 0), value=True)
@@ -136,7 +135,7 @@ class Attention(nn.Module):
         out = torch.einsum('bhij,bhjd->bhid', attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
         out = self.output_linear(out)
-        out = self.dropout(out)
+        out = self.dropout_layer(out)
         return out
 
 
@@ -223,9 +222,9 @@ class SSFTT(nn.Module):
         self.pos_embedding = nn.Parameter(torch.empty(1, (num_tokens + 1), hidden_dim))
         torch.nn.init.normal_(self.pos_embedding, std=.02)
 
-        # 分类token
+        # 分类toke
         self.cls_token = nn.Parameter(torch.zeros(1, 1, hidden_dim))
-        self.dropout = nn.Dropout(emb_dropout)
+        self.dropout_layer = nn.Dropout(p=emb_dropout)
 
         # Transformer
         self.transformer = Transformer(hidden_dim, depth, heads, mlp_dim, dropout)
@@ -264,7 +263,7 @@ class SSFTT(nn.Module):
         cls_tokens = self.cls_token.expand(x.shape[0], -1, -1)
         x = torch.cat((cls_tokens, T), dim=1)
         x += self.pos_embedding
-        x = self.dropout(x)
+        x = self.dropout_layer(x)
         x = self.transformer(x, mask)
         x = self.to_cls_token(x[:, 0])
         x = self.nn1(x)

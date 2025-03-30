@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import math
 
-from Train_and_Eval.device import get_device
+from src.utils.device import get_device
 
 
 class PositionalEncoding(nn.Module):

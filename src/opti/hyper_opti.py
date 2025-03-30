@@ -8,9 +8,10 @@ import torch.optim as optim
 from optuna import Trial
 from torch.utils.tensorboard import SummaryWriter
 
+from model_init import init_weights
 from src.MambaBase import AllinMamba
-from src.Train_and_Eval.device import get_device
-from src.Train_and_Eval.log import setup_logger
+from src.utils.device import get_device
+from src.utils.log import setup_logger
 from src.Train_and_Eval.model import set_seed
 from src.config import Config
 from src.datesets.datasets_load import load_dataset
@@ -20,6 +21,13 @@ from src.Train_and_Eval.learing_rate import WarmupCosineSchedule
 from src.Train_and_Eval.train import train_model
 from src.Train_and_Eval.eval import evaluate_model
 from torch.utils.data import DataLoader
+from src.utils.paths import get_optuna_dir, get_plot_path, ensure_dir
+
+
+# TensorBoard日志保存
+def create_tensorboard_writer(config, trial_number):
+    log_dir = get_optuna_dir(config.save_dir, trial_number)
+    return SummaryWriter(log_dir=log_dir)
 
 
 def create_data_loaders_for_optimization(X_train, y_train, X_val, y_val, batch_size, num_workers, dim=1, logger=None):
@@ -115,23 +123,13 @@ def objective(trial: Trial, config, logger, data, labels, num_classes, input_cha
     """
 
     # 超参数搜索空间
-    batch_size = trial.suggest_categorical('batch_size', [8, 16, 32])  # 批大小选择
-    # patch_size = trial.suggest_int('patch_size', 7, 9, step=2)  # 补丁大小
+    batch_size = trial.suggest_categorical('batch_size', [8, 16, 32, 64])  # 批大小选择
 
     feature_dim = trial.suggest_categorical('feature_dim', [16, 32, 64, 128])  # 特征维度
     mlp_dim = trial.suggest_categorical('mlp_dim', [16, 32, 64, 128])  # MLP维度
     dropout = trial.suggest_float('dropout', 0.1, 0.5)  # Dropout率
     d_state = trial.suggest_categorical('d_state', [16, 32, 48, 64, 80])  # Mamba状态维度
-    expand = trial.suggest_categorical('expand', [4, 8])  # 扩展因子
-
-    # batch_size = config.batch_size
-    # patch_size = config.patch_size
-    # depth = 1
-    # feature_dim = 128
-    # mlp_dim = 64
-    # dropout = 0.37
-    # d_state = 16
-    # expand = 4
+    expand = trial.suggest_categorical('expand', [8, 16, 32, 64])  # 扩展因子
 
     # 学习率调度器超参数
     learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-3, log=True)  # 学习率范围
@@ -149,6 +147,7 @@ def objective(trial: Trial, config, logger, data, labels, num_classes, input_cha
     model = AllinMamba(input_channels=input_channels, num_classes=num_classes, patch_size=config.patch_size,
                        depth=1, feature_dim=feature_dim, mlp_dim=mlp_dim, dropout=dropout,
                        d_state=d_state, expand=expand, mode=2)
+    model.apply(init_weights)
     model.to(device)
 
     # 数据准备
@@ -182,13 +181,16 @@ def objective(trial: Trial, config, logger, data, labels, num_classes, input_cha
     logger.info(f"优化器设置: lr={learning_rate:.2e}, weight_decay={weight_decay:.2e},")
     logger.info(f"学习率调度器设置: warmup_steps={warmup_steps}/{total_steps} ({warmup_ratio:.2f}), "
                 f"cycles={cycles}, min_lr={min_lr:.2e} ({min_lr_ratio:.2f}×LR)")
+    logger.info(f'批大小: {batch_size}, 特征维度: {feature_dim}, MLP维度: {mlp_dim}, ')
+    logger.info(f'Dropout: {dropout:.2f}, 状态维度: {d_state}, 扩展因子: {expand}')
 
     # 创建 TensorBoard 记录器
-    writer = SummaryWriter(log_dir=os.path.join(config.save_dir, f'optuna_trial_{trial.number}'))
+    writer = create_tensorboard_writer(config, trial.number)
 
     # 训练模型
     best_model_state_dict = train_model(model, train_loader, val_loader, criterion, optimizer, scheduler,
-                                        config.num_epochs, device, writer, logger, start_epoch=0, config=config)
+                                        config.num_epochs, device, writer, logger, start_epoch=0,
+                                        config=config, save_checkpoint=False)
 
     # 评估模型
     model.load_state_dict(best_model_state_dict)
@@ -262,6 +264,16 @@ def plot_lr_schedule(config, best_params, save_path=None):
     plt.close()
 
 
+def save_lr_schedule_plot(config, best_params):
+    try:
+        save_path = get_plot_path(config.save_dir)
+        ensure_dir(os.path.dirname(save_path))
+        plot_lr_schedule(config, best_params, save_path=save_path)
+        return save_path
+    except Exception as e:
+        return None, str(e)
+
+
 def main():
     config = Config()
     if config.model_name is None:
@@ -299,12 +311,13 @@ def main():
     for key, value in trial.params.items():
         logger.info(f"    {key}: {value}")
 
-    # 可视化最佳学习率调度
     try:
         best_params = trial.params.copy()
-        lr_schedule_path = os.path.join(config.save_dir, "best_lr_schedule.png")
-        plot_lr_schedule(config, best_params, save_path=lr_schedule_path)
-        logger.info(f"学习率调度曲线已保存至: {lr_schedule_path}")
+        saved_path = save_lr_schedule_plot(config, best_params)
+        if saved_path:
+            logger.info(f"学习率调度曲线已保存至: {saved_path}")
+        else:
+            logger.error(f"保存学习率调度曲线失败")
     except Exception as e:
         logger.error(f"绘制学习率调度曲线时发生错误: {str(e)}")
 

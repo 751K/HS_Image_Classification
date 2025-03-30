@@ -8,7 +8,7 @@ from einops import rearrange
 from torch import nn
 import torch.nn.init as init
 
-from Train_and_Eval.device import get_device
+from src.utils.device import get_device
 
 
 def _weights_init(m):
