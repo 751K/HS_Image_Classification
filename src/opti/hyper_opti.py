@@ -125,11 +125,12 @@ def objective(trial: Trial, config, logger, data, labels, num_classes, input_cha
     # 超参数搜索空间
     batch_size = trial.suggest_categorical('batch_size', [8, 16, 32, 64])  # 批大小选择
 
-    feature_dim = trial.suggest_categorical('feature_dim', [16, 32, 64, 128])  # 特征维度
     mlp_dim = trial.suggest_categorical('mlp_dim', [16, 32, 64, 128])  # MLP维度
     dropout = trial.suggest_float('dropout', 0.1, 0.5)  # Dropout率
-    d_state = trial.suggest_categorical('d_state', [16, 32, 48, 64, 80])  # Mamba状态维度
+    d_state = trial.suggest_categorical('d_state', [16, 32, 48, 64, 80, 96])  # Mamba状态维度
     expand = trial.suggest_categorical('expand', [8, 16, 32, 64])  # 扩展因子
+    head_dim = trial.suggest_categorical('head_dim', [4, 8, 16, 32])  # 头维度
+    d_conv = trial.suggest_categorical('d_conv', [2, 4, 8, 16])  # 卷积维度
 
     # 学习率调度器超参数
     learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-3, log=True)  # 学习率范围
@@ -139,6 +140,13 @@ def objective(trial: Trial, config, logger, data, labels, num_classes, input_cha
     # 优化器衰减系数
     weight_decay = trial.suggest_float('weight_decay', 1e-5, 1e-3, log=True)  # 权重衰减范围
 
+    learning_rate = config.learning_rate
+    warmup_ratio = config.warmup_ratio
+    cycles = config.cycles
+    min_lr_ratio = config.min_lr_ratio
+    weight_decay = config.weight_decay
+    feature_dim = config.feature_dim
+
     set_seed(config.seed)
 
     device = get_device()
@@ -146,7 +154,7 @@ def objective(trial: Trial, config, logger, data, labels, num_classes, input_cha
     # 使用Optuna配置的超参数创建模型
     model = AllinMamba(input_channels=input_channels, num_classes=num_classes, patch_size=config.patch_size,
                        depth=1, feature_dim=feature_dim, mlp_dim=mlp_dim, dropout=dropout,
-                       d_state=d_state, expand=expand, mode=2)
+                       d_state=d_state, expand=expand, mode=2, head_dim=head_dim, d_conv=d_conv)
     model.apply(init_weights)
     model.to(device)
 
@@ -201,9 +209,9 @@ def objective(trial: Trial, config, logger, data, labels, num_classes, input_cha
     # 记录该试验的最佳验证精度
     trial.set_user_attr('best_val_accuracy', oa)
     logger.info(f"试验 {trial.number} 完成，验证准确率: {oa:.4f}")
+    logger.info(f'平均准确率: {aa:.4f}, Kappa系数: {kappa:.4f}')
 
-    # 返回当前试验的验证准确率，供 Optuna 用来优化
-    return oa
+    return kappa
 
 
 def plot_lr_schedule(config, best_params, save_path=None):
