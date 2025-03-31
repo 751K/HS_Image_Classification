@@ -63,7 +63,7 @@ def main():
         # 准备数据
         X_train, y_train, X_test, y_test, X_val, y_val = prepare_data(data, labels, test_size=config.test_size,
                                                                       dim=model.dim, patch_size=config.patch_size,
-                                                                      random_state=config.seed)
+                                                                      random_state=config.seed, logger=logger)
 
         logger.info(f"训练集尺寸: {X_train.shape}")
         logger.info(f"测试集尺寸: {X_test.shape}")
