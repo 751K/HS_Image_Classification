@@ -66,6 +66,18 @@ def load_dataset(dataset_name: str, logger: logging.Logger = None):
                             'Reeds', 'Riparian', 'Firescar', 'Island interior', 'Acacia woodlands',
                             'Acacia shrublands', 'Acacia grasslands', 'Short mopane', 'Mixed mopane',
                             'Exposed soils']
+        },
+        'Wuhan': {
+            'data_file': 'WHU_Hi_HongHu.mat',
+            'label_file': 'WHU_Hi_HongHu_gt.mat',
+            'data_key': 'WHU_Hi_HongHu',
+            'label_key': 'WHU_Hi_HongHu_gt',
+            'label_names': ['Undefined', 'Red roof', 'Road', 'Bare soil', 'Cotton',
+                            'Cotton firewood', 'Rape', 'Chinese cabbage', 'Pakchoi', 'Cabbage',
+                            'Tuber mustard', 'Brassica parachinensis', 'Brassica chinensis',
+                            'Small Brassica chinensis', 'Lactuca sativa', 'Celtuce',
+                            'Film covered lettuce', 'Romaine lettuce', 'Carrot', 'White radish',
+                            'Garlic sprout', 'Broad bean', 'Tree']
         }
     }
 
@@ -108,7 +120,7 @@ def load_dataset(dataset_name: str, logger: logging.Logger = None):
 
 # 使用示例
 if __name__ == "__main__":
-    dataset_names = ['Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana']
+    dataset_names = ['Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana', 'Wuhan']
 
     for dataset_name in dataset_names:
         print(f"\n加载 {dataset_name} 数据集:")
