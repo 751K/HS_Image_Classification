@@ -25,7 +25,7 @@ class RMSNorm(nn.Module):
 # Mamba2 定义
 # -----------------------------
 class Mamba2(nn.Module):
-    def __init__(self, d_model: int, d_state: int, headdim: int = 16, chunk_size: int = 2,
+    def __init__(self, d_model: int, d_state: int, headdim: int = 16, chunk_size: int = 8,
                  expand: int = 2, d_conv: int = 4):
         super().__init__()
         self.d_model = d_model
@@ -62,10 +62,21 @@ class Mamba2(nn.Module):
     def forward(self, u: torch.Tensor) -> torch.Tensor:
         """
         Arguments:
-            u: (batch, seqlen, d_model) 输入，要求序列长度为 chunk_size 的倍数。
+            u: (batch, seqlen, d_model) 输入，如果序列长度不是 chunk_size 的倍数，会自动填充。
         Return:
-            y: (batch, seqlen, d_model) 输出
+            y: (batch, seqlen, d_model) 输出，尺寸与输入相同
         """
+        # 保存原始序列长度以便后续裁剪
+        original_seq_len = u.shape[1]
+
+        # 检查序列长度是否是 chunk_size 的整数倍
+        if original_seq_len % self.chunk_size != 0:
+            # 计算需要填充的长度
+            pad_len = self.chunk_size - (original_seq_len % self.chunk_size)
+            # 创建填充张量（用零填充）
+            pad = u[:, -1:].repeat(1, pad_len, 1)  # 使用最后一个位置的值重复填充
+            u = torch.cat([u, pad], dim=1)
+
         # 1. 输入投影与分割
         # u -> (batch, seqlen, d_model)
         zxbcdt = self.in_proj(u)  # (batch, seqlen, d_in_proj)
@@ -127,6 +138,11 @@ class Mamba2(nn.Module):
         # 6. 归一化与线性投影
         y = self.norm(y, z)
         y = self.out_proj(y)
+
+        # 如果进行了填充，则裁剪回原始长度
+        if original_seq_len != seq_len:
+            y = y[:, :original_seq_len, :]
+
         return y
 
 
