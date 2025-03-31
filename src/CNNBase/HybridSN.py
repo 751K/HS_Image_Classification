@@ -44,8 +44,6 @@ class HybridSN(nn.Module):
             nn.Linear(128, num_classes)
         )
 
-        self._initialize_weights()
-
     def forward(self, X):
         X = X.unsqueeze(1)
         x = self.conv1(X)
@@ -73,20 +71,6 @@ class HybridSN(nn.Module):
             x = self.conv2(x)
             x = self.conv3(x)
         return x.shape
-
-    def _initialize_weights(self):
-        # 对卷积层进行初始化
-        for m in self.modules():
-            if isinstance(m, nn.Conv3d) or isinstance(m, nn.Conv2d):
-                init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-                if m.bias is not None:
-                    init.zeros_(m.bias)
-
-            elif isinstance(m, nn.Linear):
-                init.xavier_normal_(m.weight)
-                if m.bias is not None:
-                    init.zeros_(m.bias)
-
 
 if __name__ == "__main__":
     torch.manual_seed(42)
