@@ -1,16 +1,17 @@
-# compare_datasets.py
 import os
 import json
 import pandas as pd
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
 
+from Train_and_Eval.model import set_seed
 from src.Train_and_Eval.learing_rate import WarmupCosineSchedule
 from src.utils.log import setup_logger, log_training_details
-from src.Train_and_Eval.model import set_seed
+from src.utils.paths import create_experiment_dir, create_comparison_dir, get_file_path
 from config import Config
 from src.datesets.Dataset import prepare_data, create_three_loader
 from src.model_init import create_model
@@ -18,14 +19,10 @@ from src.Dim.api import apply_dimension_reduction
 from src.datesets.datasets_load import load_dataset
 from src.Train_and_Eval.eval import evaluate_model
 from src.Train_and_Eval.train import train_model
-from src.utils.paths import (get_project_root, ensure_dir, sanitize_filename,
-                             ROOT_DIR, create_experiment_dir, create_comparison_dir, get_file_path)
 
 
 def run_experiment(dataset_name, model_name):
-    """
-    针对单个数据集运行实验
-    """
+    """针对单个数据集运行实验"""
     try:
         # 创建配置
         config = Config()
@@ -33,19 +30,21 @@ def run_experiment(dataset_name, model_name):
         config.datasets = dataset_name
         config.model_name = model_name
 
+        # 设置批量大小，减小以防内存溢出
+        if dataset_name in ['Indian', 'Botswana', 'Salinas']:
+            config.batch_size = max(8, config.batch_size // 2)
+
         # 设置保存目录
         config.save_dir = create_comparison_dir(dataset_name, model_name)
-
-        # 设置随机种子
-        set_seed(config.seed)
 
         # 设置日志记录器
         logger = setup_logger(config.save_dir)
         logger.info(f"开始对数据集 {dataset_name} 进行实验")
-        log_training_details(logger, config)
 
-        # 获取设备
-        device = config.device
+        logger.info(f"使用设备: {config.device}")
+        set_seed(config.seed)
+
+        log_training_details(logger, config)
 
         # 加载和准备数据
         data, labels, dataset_info = load_dataset(config.datasets, logger)
@@ -58,6 +57,32 @@ def run_experiment(dataset_name, model_name):
         X_train, y_train, X_test, y_test, X_val, y_val = prepare_data(data, labels, test_size=config.test_size,
                                                                       dim=model.dim, patch_size=config.patch_size,
                                                                       random_state=config.seed)
+
+        # 检查标签是否从0开始
+        if np.min(y_train) > 0 or np.min(y_test) > 0 or np.min(y_val) > 0:
+            logger.warning(f"标签不是从0开始！重新映射标签...")
+            # 重新映射标签到0开始
+            unique_labels = np.unique(np.concatenate([y_train, y_test, y_val]))
+            label_map = {old: new for new, old in enumerate(unique_labels)}
+
+            y_train = np.array([label_map[y] for y in y_train])
+            y_test = np.array([label_map[y] for y in y_test])
+            y_val = np.array([label_map[y] for y in y_val])
+
+            logger.info(f"标签已重新映射，范围: 0-{len(unique_labels) - 1}")
+
+        # 确保模型的类别数匹配实际标签数量
+        max_label = max(np.max(y_train), np.max(y_test), np.max(y_val))
+        num_classes = max_label + 1
+
+        if hasattr(model, 'adjust_num_classes') and hasattr(model, 'num_classes'):
+            if model.num_classes <= max_label:
+                logger.warning(f"调整模型类别数: {model.num_classes} -> {num_classes}")
+                model.adjust_num_classes(num_classes)
+
+        logger.info(f"训练集标签范围: {np.min(y_train)}-{np.max(y_train)}")
+        logger.info(f"测试集标签范围: {np.min(y_test)}-{np.max(y_test)}")
+        logger.info(f"模型类别数: {num_classes}")
 
         train_loader, test_loader, val_loader = create_three_loader(
             X_train, y_train, X_test, y_test, X_val, y_val, config.batch_size,
@@ -80,25 +105,44 @@ def run_experiment(dataset_name, model_name):
 
         # 设置TensorBoard
         tensorboard_dir = os.path.join(config.save_dir, 'tensorboard')
-        ensure_dir(tensorboard_dir)
+        os.makedirs(tensorboard_dir, exist_ok=True)
         writer = SummaryWriter(log_dir=tensorboard_dir)
 
         # 训练模型
         logger.info(f"开始训练模型（数据集: {dataset_name}）...")
-        best_model_state_dict = train_model(model, train_loader, val_loader, criterion, optimizer, scheduler,
-                                            config.num_epochs, device, writer, logger, 0, config)
+        try:
+            best_model_state_dict = train_model(model, train_loader, val_loader, criterion, optimizer, scheduler,
+                                                config.num_epochs, config.device, writer, logger, 0, config)
 
-        # 保存最佳模型
-        model_save_path = get_file_path(config.save_dir, "best_model.pth")
-        torch.save(best_model_state_dict, model_save_path)
+            # 保存最佳模型
+            model_save_path = get_file_path(config.save_dir, "best_model.pth")
+            torch.save(best_model_state_dict, model_save_path)
 
-        # 评估模型
-        model.load_state_dict(best_model_state_dict)
-        logger.info(f'测试集评估中（数据集: {dataset_name}）...')
-        avg_loss, accuracy, all_preds, all_labels = evaluate_model(model, test_loader, criterion,
-                                                                   device, logger, class_result=True)
+            # 评估模型
+            model.load_state_dict(best_model_state_dict)
+            logger.info(f'测试集评估中（数据集: {dataset_name}）...')
+            avg_loss, accuracy, all_preds, all_labels = evaluate_model(model, test_loader, criterion,
+                                                                       config.device, logger, class_result=True)
+        except RuntimeError as e:
+            if 'out of memory' in str(e) or 'CUDA' in str(e):
+                logger.error(f"CUDA内存不足，尝试使用CPU: {e}")
+                torch.cuda.empty_cache()
+                config.device = torch.device('cpu')
+                model = model.to(config.device)
 
-        # 关闭 TensorBoard writer
+                best_model_state_dict = train_model(model, train_loader, val_loader, criterion, optimizer, scheduler,
+                                                    config.num_epochs, config.device, writer, logger, 0, config)
+
+                model_save_path = get_file_path(config.save_dir, "best_model.pth")
+                torch.save(best_model_state_dict, model_save_path)
+
+                model.load_state_dict(best_model_state_dict)
+                avg_loss, accuracy, all_preds, all_labels = evaluate_model(model, test_loader, criterion,
+                                                                           config.device, logger, class_result=True)
+            else:
+                raise
+
+        # 关闭TensorBoard writer
         writer.close()
 
         # 保存结果
@@ -111,9 +155,10 @@ def run_experiment(dataset_name, model_name):
             'avg_loss': float(avg_loss),
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
+
         results_save_path = get_file_path(config.save_dir, "test_results.json")
         with open(results_save_path, 'w') as f:
-            json.dump(results, f, indent=4)  # type: ignore
+            json.dump(results, f, indent=4)
 
         logger.info(
             f"数据集 {dataset_name} 实验完成，OA: {accuracy[0]:.4f}， AA: {accuracy[1]:.4f}, Kappa: {accuracy[2]:.4f}")
@@ -137,13 +182,15 @@ def run_experiment(dataset_name, model_name):
 def main():
     # 设置要测试的数据集和模型
     datasets = ['Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana']
-    model_name = 'AllinMamba'  # 可以根据需要更改模型
+    model_name = 'AllinMamba'  # 可根据需要更改模型
 
     # 保存所有结果
     all_results = []
 
     # 对每个数据集运行实验
     for dataset in datasets:
+        print(f"\n{'=' * 20} 开始 {dataset} 数据集实验 {'=' * 20}")
+
         result = run_experiment(dataset, model_name)
         if result:
             all_results.append(result)
@@ -159,9 +206,9 @@ def main():
     # 保存汇总JSON
     json_path = get_file_path(compare_dir, "comparison_results.json")
     with open(json_path, 'w') as f:
-        json.dump(all_results, f, indent=4)  # type: ignore
+        json.dump(all_results, f, indent=4)
 
-    print(f"所有数据集实验完成，结果已保存到 {compare_dir}")
+    print(f"\n所有数据集实验完成，结果已保存到 {compare_dir}")
 
     # 打印比较表格
     if not df_results.empty:
