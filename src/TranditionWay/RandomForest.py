@@ -3,6 +3,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, classification_report
 from typing import Tuple
 
+from config import Config
 from src.datesets.Dataset import prepare_data
 from src.datesets.datasets_load import load_dataset
 
@@ -71,11 +72,13 @@ class RandomForestHSI:
 
 
 if __name__ == '__main__':
-    data, labels, dataset_info = load_dataset('Pavia')
+    config = Config()
+    data, labels, dataset_info = load_dataset(config.datasets)
+
     # 准备数据
     X_train, y_train, X_test, y_test, X_val, y_val = prepare_data(
-        data, labels, test_size=0.95, random_state=42,
-        dim=3, patch_size=5
+        data, labels, test_size=config.test_size, random_state=config.seed,
+        dim=3, patch_size=config.patch_size,
     )
 
     # 创建和训练模型
@@ -83,15 +86,37 @@ if __name__ == '__main__':
     rf_model.fit(X_train, y_train)
 
     # 评估模型
-    train_accuracy, train_report = rf_model.evaluate(X_train, y_train)
-    test_accuracy, test_report = rf_model.evaluate(X_test, y_test)
+    from sklearn.metrics import cohen_kappa_score, confusion_matrix
 
-    print(f"Training Accuracy: {train_accuracy}")
-    print("Training Classification Report:")
+    # 训练集评估
+    train_accuracy, train_report = rf_model.evaluate(X_train, y_train)
+    y_train_pred = rf_model.predict(X_train)
+    train_kappa = cohen_kappa_score(y_train, y_train_pred)
+    train_cm = confusion_matrix(y_train, y_train_pred)
+    train_aa = np.mean(np.diag(train_cm) / np.sum(train_cm, axis=1))
+
+    # 验证集评估
+    val_accuracy, val_report = rf_model.evaluate(X_val, y_val)
+    y_val_pred = rf_model.predict(X_val)
+    val_kappa = cohen_kappa_score(y_val, y_val_pred)
+    val_cm = confusion_matrix(y_val, y_val_pred)
+    val_aa = np.mean(np.diag(val_cm) / np.sum(val_cm, axis=1))
+
+    # 测试集评估
+    test_accuracy, test_report = rf_model.evaluate(X_test, y_test)
+    y_test_pred = rf_model.predict(X_test)
+    test_kappa = cohen_kappa_score(y_test, y_test_pred)
+    test_cm = confusion_matrix(y_test, y_test_pred)
+    test_aa = np.mean(np.diag(test_cm) / np.sum(test_cm, axis=1))
+
+    print(f"训练集结果 - OA: {train_accuracy:.4f}, AA: {train_aa:.4f}, Kappa: {train_kappa:.4f}")
+    print("训练集分类报告:")
     print(train_report)
 
-    print("Validation Classification Report:")
+    print(f"验证集结果 - OA: {val_accuracy:.4f}, AA: {val_aa:.4f}, Kappa: {val_kappa:.4f}")
+    print("验证集分类报告:")
+    print(val_report)
 
-    print(f"Test Accuracy: {test_accuracy}")
-    print("Test Classification Report:")
+    print(f"测试集结果 - OA: {test_accuracy:.4f}, AA: {test_aa:.4f}, Kappa: {test_kappa:.4f}")
+    print("测试集分类报告:")
     print(test_report)
