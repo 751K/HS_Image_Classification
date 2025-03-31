@@ -20,41 +20,41 @@ class HSIDataset(Dataset):
         return self.data[idx], self.labels[idx]
 
 
-def create_patches(input_data: np.ndarray, input_labels: np.ndarray, patch_size: int = 5):
-    """
-    创建图像块（patches）和对应的标签。
-
-    Args:
-        input_data (np.ndarray): 输入数据数组，形状为 (rows, cols, bands)。
-        input_labels (np.ndarray): 输入标签数组，形状为 (rows, cols)。
-        patch_size (int): 图像块的大小。默认值为 5。
-
-    Returns:
-        tuple: 包含以下两个元素的元组：
-            - patches (np.ndarray): 图像块数组，形状为 (num_patches, bands, patch_size, patch_size)。
-            - patch_labels (np.ndarray): 每个图像块对应的标签，形状为 (num_patches,)。
-    """
+def create_patches(input_data: np.ndarray, input_labels: np.ndarray, patch_size: int = 5, batch_size: int = 1000):
+    """通过分批处理减少内存峰值使用"""
     rows, cols, bands = input_data.shape
     pad_width = patch_size // 2
 
     padded_data = np.pad(input_data, ((pad_width, pad_width), (pad_width, pad_width), (0, 0)), mode='reflect')
-    padded_labels = np.pad(input_labels, pad_width, mode='constant', constant_values=0)
 
-    # 使用 view_as_windows 生成 patches
-    patches = view_as_windows(padded_data, (patch_size, patch_size, bands), step=1)
-    patches = patches.reshape(rows * cols, patch_size, patch_size, bands)
+    # 找出所有有效像素位置
+    valid_positions = []
+    valid_labels = []
 
-    patch_labels = padded_labels[pad_width:pad_width + rows, pad_width:pad_width + cols].flatten()
+    for i in range(rows):
+        for j in range(cols):
+            if input_labels[i, j] != 0:
+                valid_positions.append((i, j))
+                valid_labels.append(input_labels[i, j] - 1)
 
-    valid_indices = np.where(patch_labels != 0)[0]
+    num_patches = len(valid_positions)
+    all_patches = []
 
-    patches = patches[valid_indices]
-    patch_labels = patch_labels[valid_indices]
-    patch_labels = patch_labels - 1
+    # 分批处理
+    for start_idx in range(0, num_patches, batch_size):
+        end_idx = min(start_idx + batch_size, num_patches)
+        batch_patches = np.zeros((end_idx - start_idx, bands, patch_size, patch_size), dtype=input_data.dtype)
 
-    patches = patches.transpose(0, 3, 1, 2)
+        for i, (r, c) in enumerate(valid_positions[start_idx:end_idx]):
+            r_pad, c_pad = r + pad_width, c + pad_width
+            patch = padded_data[r_pad - pad_width:r_pad + pad_width + 1, c_pad - pad_width:c_pad + pad_width + 1, :]
+            batch_patches[i] = patch.transpose(2, 0, 1)
 
-    return patches, patch_labels
+        all_patches.append(batch_patches)
+
+    # 合并所有批次
+    final_patches = np.vstack(all_patches)
+    return final_patches, np.array(valid_labels)
 
 
 def reshape_data_1D(data: np.ndarray, labels: np.ndarray):
@@ -81,7 +81,7 @@ def reshape_data_1D(data: np.ndarray, labels: np.ndarray):
 
 
 def prepare_data(data: np.ndarray, labels: np.ndarray, test_size: float = None, random_state: int = 42, dim: int = 1,
-                 patch_size: int = 5):
+                 patch_size: int = 5, logger=None):
     """
     准备数据，根据指定的维度进行处理，并划分为训练集、测试集和验证集。
 
@@ -110,13 +110,13 @@ def prepare_data(data: np.ndarray, labels: np.ndarray, test_size: float = None, 
         else:
             processed_data = patches.reshape(patches.shape[0], 1, patches.shape[1], patch_size, patch_size)
         processed_labels = patch_labels
-
+    if logger:
+        logger.info(f"数据处理完成，数据形状: {processed_data.shape}, 标签形状: {processed_labels.shape}")
     if test_size == 1:
         return processed_data, processed_labels
     else:
-        val_size = min(0.5, 0.05 / (1 - test_size))  # 确保验证集不超过整个数据集的5%
         train_data, train_labels, test_data, test_labels, val_data, val_labels = (
-            spilt_three(processed_data, processed_labels, test_size=test_size, val_size=val_size,
+            spilt_three(processed_data, processed_labels, test_size=test_size,
                         random_state=random_state))
         return train_data, train_labels, test_data, test_labels, val_data, val_labels
 
