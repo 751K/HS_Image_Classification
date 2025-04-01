@@ -51,17 +51,17 @@ def measure_inference_time(model, test_loader, device):
     return avg_inference_time
 
 
-def compare_parameters_values(dataset_name, parameters_name, values, result_dir=None):
-    """比较ALLinMamba模型在不同参数下的性能"""
+def compare_parameters_values(model_name, dataset_name, parameters_name, values, result_dir=None):
+    """比较模型在不同参数下的性能"""
     # 创建结果目录
     timestamp = datetime.now().strftime("%m%d_%H%M")
     if result_dir is None:
-        result_dir = f"../results/allinmamba_{parameters_name}_comparison_{dataset_name}_{timestamp}"
+        result_dir = f"../results/{model_name}_{parameters_name}_comparison_{dataset_name}_{timestamp}"
     os.makedirs(result_dir, exist_ok=True)
 
     # 设置日志
     logger = setup_logger(result_dir)
-    logger.info(f"开始在{dataset_name}数据集上比较ALLinMamba模型的不同{parameters_name}参数")
+    logger.info(f"开始在{dataset_name}数据集上比较{model_name}模型的不同{parameters_name}参数")
     logger.info(f"将测试以下{parameters_name}值: {values}")
 
     # 准备比较结果存储
@@ -80,7 +80,7 @@ def compare_parameters_values(dataset_name, parameters_name, values, result_dir=
     config = Config()
     config.datasets = dataset_name
     config.test_mode = False
-    config.model_name = "AllinMamba"
+    config.model_name = model_name
 
     set_seed(config.seed)
 
@@ -126,7 +126,7 @@ def compare_parameters_values(dataset_name, parameters_name, values, result_dir=
             setattr(config_copy, parameters_name, value)
 
             # 创建模型 - 带有特定的参数
-            model = create_model("AllinMamba", config_copy, logger)
+            model = create_model(model_name, config_copy, logger)
 
             # 检查并调整类别数
             if hasattr(model, 'adjust_num_classes') and hasattr(model, 'num_classes'):
@@ -157,7 +157,7 @@ def compare_parameters_values(dataset_name, parameters_name, values, result_dir=
             # 训练模型
             best_model_state_dict = train_model(
                 model, train_loader, val_loader, criterion, optimizer, scheduler,
-                config_copy.num_epochs, device, writer, logger, 0, config_copy
+                config_copy.num_epochs, device, writer, logger, 0, config_copy, save_checkpoint=False
             )
 
             training_time = (datetime.now() - start_time).total_seconds()
@@ -220,7 +220,7 @@ def compare_parameters_values(dataset_name, parameters_name, values, result_dir=
     # 绘制values vs kappa
     plt.figure(figsize=(10, 6))
     plt.plot(comparison_results[f"{parameters_name}"], comparison_results["kappa"], marker='o', linestyle='-')
-    plt.title(f"Influence of ALLinMamba {parameters_name} Parameter on Kappa - {dataset_name}Dataset")
+    plt.title(f"Influence of {model_name} {parameters_name} Parameter on Kappa - {dataset_name}Dataset")
     plt.xlabel(f"{parameters_name}")
     plt.ylabel("Kappa")
     plt.grid(True)
@@ -230,7 +230,7 @@ def compare_parameters_values(dataset_name, parameters_name, values, result_dir=
     # 绘制values vs 参数量
     plt.figure(figsize=(10, 6))
     plt.plot(comparison_results[f"{parameters_name}"], comparison_results["parameters"], marker='o', linestyle='-')
-    plt.title(f"Influence of ALLinMamba {parameters_name} Parameter on Model Parameters - {dataset_name}Dataset")
+    plt.title(f"Influence of {model_name} {parameters_name} Parameter on Model Parameters - {dataset_name}Dataset")
     plt.xlabel(f"{parameters_name}")
     plt.ylabel("Parameters")
     plt.grid(True)
@@ -240,7 +240,7 @@ def compare_parameters_values(dataset_name, parameters_name, values, result_dir=
     # 绘制values vs 推理时间
     plt.figure(figsize=(10, 6))
     plt.plot(comparison_results[f"{parameters_name}"], comparison_results["inference_time"], marker='o', linestyle='-')
-    plt.title(f"Influence of ALLinMamba {parameters_name} Parameter on Inference Time - {dataset_name}Dataset")
+    plt.title(f"Influence of {model_name} {parameters_name} Parameter on Inference Time - {dataset_name}Dataset")
     plt.xlabel(f"{parameters_name}")
     plt.ylabel("Inference TIme(ms/sample)")
     plt.grid(True)
@@ -263,7 +263,7 @@ def compare_parameters_values(dataset_name, parameters_name, values, result_dir=
     ax2.tick_params(axis='y', labelcolor=color2)
 
     plt.title(
-        f"Influence of ALLinMamba {parameters_name} Parameter on Inference Time and Kappa - {dataset_name}Dataset")
+        f"Influence of {model_name} {parameters_name} Parameter on Inference Time and Kappa - {dataset_name}Dataset")
     fig.tight_layout()
     plt.savefig(os.path.join(result_dir, f"{parameters_name}_vs_kappa_and_time.png"))
 
@@ -272,13 +272,13 @@ def compare_parameters_values(dataset_name, parameters_name, values, result_dir=
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="比较ALLinMamba模型在不同参数下的性能")
+    parser = argparse.ArgumentParser(description="比较模型在不同参数下的性能")
+    parser.add_argument("--model", type=str, default="AllinMamba", help="模型名称")
     parser.add_argument("--dataset", type=str, default="Indian", help="数据集名称")
-    parser.add_argument("--parameters_name", type=str, default="d_state", )
+    parser.add_argument("--parameters_name", type=str, default="batch_size", )
     parser.add_argument("--value", type=int, nargs="+",
-                        default=[1, 2, 3, 4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 72,
-                                 80, 88, 96],
+                        default=[2, 4, 8, 16, 32, 64, 128],
                         help="要测试的参数值列表")
     args = parser.parse_args()
 
-    compare_parameters_values(args.dataset, args.parameters_name, args.value)
+    compare_parameters_values(args.model, args.dataset, args.parameters_name, args.value)
