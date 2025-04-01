@@ -50,10 +50,10 @@ class Config:
             self.batch_size = 64
             self.test_size = 0.8
             self.num_classes = 16
-            self.mlp_dim = 64
+            self.mlp_dim = 32
             self.expand = 32
-            self.d_state = 48
-            self.d_conv = 8
+            self.d_state = 56
+            self.d_conv = 5
             self.head_dim = 4
             self.dropout = 0.4519834690833574
             self.learning_rate = 0.0002684994708259589

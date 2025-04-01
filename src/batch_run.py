@@ -8,6 +8,7 @@ import pandas as pd
 from datetime import datetime
 from tqdm import tqdm
 import argparse
+import time
 
 from config import Config
 from src.utils.log import setup_logger
@@ -22,6 +23,31 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 from src.Train_and_Eval.learing_rate import WarmupCosineSchedule
+
+
+def measure_inference_time(model, test_loader, device):
+    """测量模型推理时间"""
+    model.eval()
+    total_samples = 0
+    total_time = 0
+
+    with torch.no_grad():
+        for inputs, _ in test_loader:
+            inputs = inputs.to(device)
+            batch_size = inputs.size(0)
+            total_samples += batch_size
+
+            # 计时推理过程
+            start_time = time.time()
+            _ = model(inputs)
+            torch.cuda.synchronize() if 'cuda' in str(device) else None
+            end_time = time.time()
+
+            total_time += (end_time - start_time)
+
+    # 计算平均每个样本的推理时间（毫秒）
+    avg_inference_time = (total_time / total_samples) * 1000
+    return avg_inference_time
 
 
 def batch_run(dataset_name, models_to_run=None, result_dir=None):
@@ -49,7 +75,8 @@ def batch_run(dataset_name, models_to_run=None, result_dir=None):
         "aa": [],
         "kappa": [],
         "training_time": [],
-        "parameters": []
+        "parameters": [],
+        "inference_time": []  # 添加推理时间字段
     }
 
     # 加载数据集（只加载一次）
@@ -126,8 +153,15 @@ def batch_run(dataset_name, models_to_run=None, result_dir=None):
             model_save_path = os.path.join(config.save_dir, "best_model.pth")
             torch.save(best_model_state_dict, model_save_path)
 
-            # 评估模型
+            # 加载最佳模型
             model.load_state_dict(best_model_state_dict)
+
+            # 测量推理时间
+            logger.info(f"测量模型 {model_name} 的推理时间...")
+            inference_time = measure_inference_time(model, test_loader, device)
+            logger.info(f"模型 {model_name} 的平均推理时间: {inference_time:.2f} 毫秒/样本")
+
+            # 评估模型
             avg_loss, accuracy, all_preds, all_labels = evaluate_model(
                 model, test_loader, criterion, device, logger, class_result=True
             )
@@ -142,7 +176,8 @@ def batch_run(dataset_name, models_to_run=None, result_dir=None):
                 "kappa": float(kappa),
                 "loss": float(avg_loss),
                 "training_time": training_time,
-                "parameters": sum(p.numel() for p in model.parameters())
+                "parameters": sum(p.numel() for p in model.parameters()),
+                "inference_time": float(inference_time)  # 添加推理时间
             }
 
             # 保存单个模型结果
@@ -156,6 +191,7 @@ def batch_run(dataset_name, models_to_run=None, result_dir=None):
             comparison_results["kappa"].append(float(kappa))
             comparison_results["training_time"].append(training_time)
             comparison_results["parameters"].append(sum(p.numel() for p in model.parameters()))
+            comparison_results["inference_time"].append(float(inference_time))  # 添加推理时间
 
             logger.info(f"模型 {model_name} 执行完成，OA: {oa:.4f}, AA: {aa:.4f}, Kappa: {kappa:.4f}")
 
@@ -168,28 +204,61 @@ def batch_run(dataset_name, models_to_run=None, result_dir=None):
     comparison_df = pd.DataFrame(comparison_results)
     comparison_df.to_csv(os.path.join(result_dir, "model_comparison.csv"), index=False)
 
-    # 可视化比较结果
-    plt.figure(figsize=(12, 8))
-    plt.bar(comparison_results["models"], comparison_results["accuracy"])
-    plt.title(f"模型OA比较 - {dataset_name}数据集")
-    plt.xlabel("模型")
-    plt.ylabel("总体准确率(OA)")
-    plt.xticks(rotation=45)
+    # 分组柱状图同时展示OA、AA和Kappa
+    x = np.arange(len(comparison_results["models"]))  # 模型位置
+    width = 0.25  # 每组柱的宽度
+
+    plt.figure(figsize=(14, 8))
+    # 绘制三组柱状图
+    plt.bar(x - width, comparison_results["accuracy"], width, label='OA')
+    plt.bar(x, comparison_results["aa"], width, label='AA')
+    plt.bar(x + width, comparison_results["kappa"], width, label='Kappa')
+
+    plt.title(f"Model Performance Comparison - {dataset_name} Dataset")
+    plt.xlabel("Models")
+    plt.ylabel("Accuracy Metrics")
+    plt.xticks(x, comparison_results["models"], rotation=45)
+    plt.legend()
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
     plt.tight_layout()
     plt.savefig(os.path.join(result_dir, "accuracy_comparison.png"))
 
     # 参数量vs准确率
     plt.figure(figsize=(10, 8))
-    plt.scatter(comparison_results["parameters"], comparison_results["accuracy"])
+    plt.scatter(comparison_results["parameters"], comparison_results["kappa"])
     for i, model_name in enumerate(comparison_results["models"]):
-        plt.annotate(model_name, (comparison_results["parameters"][i], comparison_results["accuracy"][i]))
-    plt.title(f"参数量 vs 准确率 - {dataset_name}数据集")
-    plt.xlabel("参数量")
-    plt.ylabel("准确率")
+        plt.annotate(model_name, (comparison_results["parameters"][i], comparison_results["kappa"][i]))
+    plt.title(f"Model Parameters vs Kappa - {dataset_name} Dataset")
+    plt.xlabel("Parameters")
+    plt.ylabel("Kappa")
     plt.xscale('log')
     plt.grid(True)
     plt.tight_layout()
     plt.savefig(os.path.join(result_dir, "params_vs_accuracy.png"))
+
+    # 运行时间vs准确率
+    plt.figure(figsize=(10, 8))
+    plt.scatter(comparison_results["training_time"], comparison_results["kappa"])
+    for i, model_name in enumerate(comparison_results["models"]):
+        plt.annotate(model_name, (comparison_results["training_time"][i], comparison_results["kappa"][i]))
+    plt.title(f"Training Time vs Kappa - {dataset_name}Dataset")
+    plt.xlabel("Training Time(s)")
+    plt.ylabel("Kappa")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(os.path.join(result_dir, "time_vs_accuracy.png"))
+
+    # 添加推理时间vs准确率图
+    plt.figure(figsize=(10, 8))
+    plt.scatter(comparison_results["inference_time"], comparison_results["kappa"])
+    for i, model_name in enumerate(comparison_results["models"]):
+        plt.annotate(model_name, (comparison_results["inference_time"][i], comparison_results["kappa"][i]))
+    plt.title(f"Inference Time vs Kappa - {dataset_name} Dataset")
+    plt.xlabel("Inference Time(ms/sample)")
+    plt.ylabel("Kappa")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(os.path.join(result_dir, "inference_time_vs_accuracy.png"))
 
     logger.info(f"批量执行完成，结果已保存至 {result_dir}")
     return comparison_results
