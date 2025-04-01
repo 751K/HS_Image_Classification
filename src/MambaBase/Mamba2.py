@@ -73,8 +73,14 @@ class Mamba2(nn.Module):
         if original_seq_len % self.chunk_size != 0:
             # 计算需要填充的长度
             pad_len = self.chunk_size - (original_seq_len % self.chunk_size)
-            # 创建填充张量（用零填充）
-            pad = u[:, -1:].repeat(1, pad_len, 1)  # 使用最后一个位置的值重复填充
+            # 使用序列的平均值填充
+            if original_seq_len >= 5:
+                # 取最后5个位置的平均值
+                pad_values = torch.mean(u[:, -5:], dim=1, keepdim=True)
+                pad = pad_values.repeat(1, pad_len, 1)  # 使用平均值重复填充
+            else:
+                # 序列太短时使用最后一个位置的值填充
+                pad = u[:, -1:].repeat(1, pad_len, 1)
             u = torch.cat([u, pad], dim=1)
 
         # 1. 输入投影与分割
