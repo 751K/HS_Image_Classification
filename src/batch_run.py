@@ -145,7 +145,7 @@ def batch_run(dataset_name, models_to_run=None, result_dir=None):
             # 训练模型 - 使用原始train_model函数
             best_model_state_dict = train_model(
                 model, train_loader, val_loader, criterion, optimizer, scheduler,
-                config.num_epochs, device, writer, logger, 0, config
+                config.num_epochs, device, writer, logger, 0, config,save_checkpoint=False
             )
 
             training_time = (datetime.now() - start_time).total_seconds()

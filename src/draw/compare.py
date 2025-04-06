@@ -1,55 +1,68 @@
 import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
 
-# --------------------
-# 1) 预先定义的数据
-# --------------------
-models = ["ResNet2D", "HybridSN", "LeeEtAl3D", "SSFTT", "SFT", "SSMamba", "MambaHSI", "STMamba", "Ours"]
+# 读取CSV数据
+df = pd.read_csv('model_comparison.csv')
 
-# 这里的数值仅为示例，请用你自己真实的 FLOPs、Model Size、OA(%) 替换
-flops = [120, 200, 350, 500, 620, 700, 900, 1000, 1100]  # 单位：M
-parameters = [80, 150, 280, 400, 520, 600, 800, 1000, 1200]  # 单位：K
-oa = [94.5, 96.2, 95.8, 97.0, 96.0, 97.2, 98.1, 99.1, 99.3]  # 单位：%
+# 获取模型名称列表
+models = df['models'].tolist()
 
-# 为了让不同方法在图上有不同的标记
-markers = ["^", "s", "o", "D", "p", "H", "*", "v", "x"]  # 可以自行调整
-colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22"]  # 自定义配色
-# --------------------
-# 2) 创建子图并绘制
-# --------------------
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
+# 准备数据 (将准确率转换为百分比)
+parameters = [p / 1000 for p in df['parameters'].tolist()]  # 转换为K单位
+oa = [acc * 100 for acc in df['accuracy'].tolist()]  # 转换为百分比
+inference_time = df['inference_time'].tolist()  # 推理时间(ms)
 
-# (a) FLOPs vs OA
+# 自动生成足够的标记和颜色
+markers = ["o", "s", "^", "D", "p", "H", "*", "v", "x", "+", "d", "<", ">"]
+colors = plt.cm.tab20(np.linspace(0, 1, len(models)))
+
+# 创建子图
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
+
+# (a) 推理时间 vs OA
 for i, model in enumerate(models):
-    ax1.scatter(flops[i], oa[i],
-                marker=markers[i],
-                color=colors[i],
-                label=model,
-                s=100)  # s=100可调整点的大小
-ax1.set_xlabel("FLOPs (M)")
-ax1.set_ylabel("OA (%)")
-ax1.set_title("(a)")
-
-# (b) Model Parameters vs OA
-for i, model in enumerate(models):
-    ax2.scatter(parameters[i], oa[i],
-                marker=markers[i],
+    ax1.scatter(inference_time[i], oa[i],
+                marker=markers[i % len(markers)],
                 color=colors[i],
                 label=model,
                 s=100)
-ax2.set_xlabel("Model Parameters (M)")
-ax2.set_ylabel("OA (%)")
-ax2.set_title("(b)")
+    # 在每个点旁添加模型名称标签
+    ax1.annotate(model, (inference_time[i], oa[i]),
+                 xytext=(5, 0), textcoords='offset points',
+                 fontsize=8, color=colors[i])
 
-# --------------------
-# 3) 设置图例
-# --------------------
-ax1.legend(loc="lower right")
+ax1.set_xlabel("Inference time (ms/sample)")
+ax1.set_ylabel("OA (%)")
+ax1.set_title("(a) Inference time vs Accuracy")
 ax1.grid(True)
-ax2.legend(loc="lower right")
+
+# (b) 参数量 vs OA
+for i, model in enumerate(models):
+    ax2.scatter(parameters[i], oa[i],
+                marker=markers[i % len(markers)],
+                color=colors[i],
+                label=model,
+                s=100)
+    # 在每个点旁添加模型名称标签
+    ax2.annotate(model, (parameters[i], oa[i]),
+                 xytext=(5, 0), textcoords='offset points',
+                 fontsize=8, color=colors[i])
+
+ax2.set_xlabel("Model Parameters (K)")
+ax2.set_ylabel("OA (%)")
+ax2.set_title("(b) Parameters vs Accuracy")
+ax2.set_xscale('log')  # 参数量使用对数刻度更合适
 ax2.grid(True)
 
-# --------------------
-# 4) 布局与显示
-# --------------------
-plt.tight_layout()
+# 添加常规图例，位于底部
+fig.legend(handles=[plt.Line2D([0], [0], marker=markers[i % len(markers)], color=colors[i],
+                              linestyle='None', markersize=8, label=model)
+                   for i, model in enumerate(models)],
+          loc='upper center', bbox_to_anchor=(0.5, 0),
+          ncol=5, fancybox=True, shadow=True, fontsize='medium')
+
+# 布局与保存
+plt.tight_layout(rect=[0, 0.1, 1, 0.95])  # 为底部图例留出更多空间
+plt.savefig("model_performance_comparison.png", dpi=300, bbox_inches="tight")
 plt.show()
