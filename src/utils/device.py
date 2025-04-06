@@ -5,9 +5,6 @@ def get_device():
     """
     获取可用的计算设备，优先选择 CUDA，然后是 MPS，最后是 CPU。
 
-    Args:
-        None
-
     Returns:
         torch.device: 可用的计算设备。
     """
