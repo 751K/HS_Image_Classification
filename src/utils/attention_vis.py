@@ -92,7 +92,7 @@ class AttentionVisualizer:
             df = pd.DataFrame(data_tensor.numpy())
             df.to_csv(file_path, index=False)
 
-    def visualize_attention(self, input_data, save_dir, class_names=None):
+    def visualize_attention(self, input_data, save_dir, labels=None, class_names=None):
         """执行前向传播并可视化注意力权重"""
         self.model.eval()
         input_data = input_data.to(self.device)
@@ -116,7 +116,7 @@ class AttentionVisualizer:
 
         # 可视化融合门权重
         if 'fusion_weights' in self.attention_maps:
-            self._plot_fusion_weights(save_dir)
+            self._plot_fusion_weights(save_dir, labels)
 
         # 可视化扫描权重
         if 'scan_weights' in self.attention_maps:
@@ -129,29 +129,55 @@ class AttentionVisualizer:
 
         # 生成类激活映射
         if 'features' in self.feature_maps:
-            self.generate_cam(input_data, save_dir)
+            self.generate_cam(input_data, save_dir, labels)
 
-    def _plot_fusion_weights(self, save_dir):
-        """绘制融合门权重"""
+    def _plot_fusion_weights(self, save_dir, labels=None):
+        """按类别绘制融合门权重"""
         weights = self.attention_maps['fusion_weights']
-        batch_size = weights.shape[0]
 
-        plt.figure(figsize=(10, 6))
-        # 选择最多16个样本可视化
-        n_samples = min(16, batch_size)
+        if labels is not None:
+            # 按类别绘制
+            unique_labels = torch.unique(labels)
+            n_classes = len(unique_labels)
 
-        # 创建热力图
-        for i in range(n_samples):
-            plt.subplot(4, 4, i + 1 if i < 16 else 16)
-            w = weights[i].numpy().reshape(1, -1)
-            sns.heatmap(w, cmap='viridis', annot=True, fmt='.2f', cbar=False)
-            plt.title(f'Sample {i + 1}')
-            plt.xlabel('Spatial | Spectral')
-            plt.yticks([])
+            # 计算网格大小（接近正方形）
+            grid_size = int(np.ceil(np.sqrt(n_classes)))
+            plt.figure(figsize=(4 * grid_size, 4 * grid_size))
 
-        plt.tight_layout()
-        plt.savefig(os.path.join(save_dir, 'fusion_weights.png'), dpi=300)
-        plt.close()
+            for idx, label in enumerate(unique_labels):
+                # 找到属于该类别的所有样本
+                class_indices = (labels == label).nonzero(as_tuple=True)[0]
+                # 提取该类别的所有权重并计算平均值
+                class_weights = weights[class_indices].mean(dim=0).numpy().reshape(1, -1)
+
+                plt.subplot(grid_size, grid_size, idx + 1)
+                sns.heatmap(class_weights, cmap='viridis', annot=True, fmt='.2f', cbar=False)
+                plt.title(f'Class {label.item()}')
+                plt.xlabel('Spatial | Spectral')
+                plt.yticks([])
+
+            plt.tight_layout()
+            plt.savefig(os.path.join(save_dir, 'fusion_weights_by_class.png'), dpi=300)
+            plt.close()
+        else:
+            # 保持原有的按样本可视化逻辑
+            batch_size = weights.shape[0]
+            plt.figure(figsize=(10, 6))
+            # 选择最多16个样本可视化
+            n_samples = min(16, batch_size)
+
+            # 创建热力图
+            for i in range(n_samples):
+                plt.subplot(4, 4, i + 1 if i < 16 else 16)
+                w = weights[i].numpy().reshape(1, -1)
+                sns.heatmap(w, cmap='viridis', annot=True, fmt='.2f', cbar=False)
+                plt.title(f'样本 {i + 1}')
+                plt.xlabel('空间 | 光谱')
+                plt.yticks([])
+
+            plt.tight_layout()
+            plt.savefig(os.path.join(save_dir, 'fusion_weights.png'), dpi=300)
+            plt.close()
 
     def _plot_scan_weights(self, save_dir):
         """绘制扫描权重"""
@@ -217,7 +243,7 @@ class AttentionVisualizer:
             plt.savefig(os.path.join(save_dir, f'{name}_values.png'), dpi=300)
             plt.close()
 
-    def generate_cam(self, input_data, save_dir, target_class=None, alpha=0.5):
+    def generate_cam(self, input_data, save_dir, labels=None, target_class=None, alpha=0.5):
         """生成类激活映射 (CAM)"""
         if 'features' not in self.feature_maps:
             print("Warning: No feature maps captured, skipping CAM generation")
@@ -248,49 +274,102 @@ class AttentionVisualizer:
         cam = cam - cam.min()
         cam = cam / (cam.max() + 1e-7)
 
-        # 可视化CAM (最多16个样本)
-        n_samples = min(16, batch_size)
-        plt.figure(figsize=(20, 20))
+        # 按类别生成CAM
+        if labels is not None:
+            # 获取批次中的唯一类别
+            unique_labels = torch.unique(labels)
+            n_classes = len(unique_labels)
 
-        for i in range(n_samples):
-            # 将输入图像转换为可视化格式
-            if input_data.dim() == 4:  # (B, C, H, W)
-                # 高光谱图像通常需要特殊处理
-                # 可视化选择的三个通道作为RGB
-                c = input_data.shape[1]
-                if c >= 3:
-                    # 选择三个较为平均分布的通道
-                    idx1, idx2, idx3 = c // 4, c // 2, c * 3 // 4
-                    rgb_img = torch.stack([
-                        input_data[i, idx1],
-                        input_data[i, idx2],
-                        input_data[i, idx3]
-                    ], dim=-1).cpu().numpy()
-                else:
-                    # 单通道重复
-                    rgb_img = input_data[i, 0:1].repeat(1, 3).permute(1, 2, 0).cpu().numpy()
+            # 计算网格大小 (接近正方形)
+            grid_size = int(np.ceil(np.sqrt(n_classes)))
+            plt.figure(figsize=(4 * grid_size, 4 * grid_size))
 
-                # 归一化图像
-                rgb_img = (rgb_img - rgb_img.min()) / (rgb_img.max() - rgb_img.min() + 1e-7)
+            for idx, label in enumerate(unique_labels):
+                # 找到该类别的第一个样本
+                sample_idx = (labels == label).nonzero(as_tuple=True)[0][0].item()
 
-                # CAM热力图
-                heatmap = cam[i].cpu().numpy()
-                heatmap = cv2.resize(heatmap, (rgb_img.shape[1], rgb_img.shape[0]))
-                heatmap = np.uint8(255 * heatmap)
-                heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-                heatmap = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB) / 255.0
+                # 将输入图像转换为可视化格式
+                if input_data.dim() == 4:  # (B, C, H, W)
+                    # 高光谱图像通常需要特殊处理
+                    # 可视化选择的三个通道作为RGB
+                    c = input_data.shape[1]
+                    if c >= 3:
+                        # 选择三个较为平均分布的通道
+                        idx1, idx2, idx3 = c // 4, c // 2, c * 3 // 4
+                        rgb_img = torch.stack([
+                            input_data[sample_idx, idx1],
+                            input_data[sample_idx, idx2],
+                            input_data[sample_idx, idx3]
+                        ], dim=-1).cpu().numpy()
+                    else:
+                        # 单通道重复
+                        rgb_img = input_data[sample_idx, 0:1].repeat(1, 3).permute(1, 2, 0).cpu().numpy()
 
-                # 叠加
-                superimposed = alpha * heatmap + (1 - alpha) * rgb_img
+                    # 归一化图像
+                    rgb_img = (rgb_img - rgb_img.min()) / (rgb_img.max() - rgb_img.min() + 1e-7)
 
-                plt.subplot(4, 4, i + 1)
-                plt.imshow(superimposed)
-                plt.title(f'Sample {i + 1}')
-                plt.axis('off')
+                    # CAM热力图
+                    heatmap = cam[sample_idx].cpu().numpy()
+                    heatmap = cv2.resize(heatmap, (rgb_img.shape[1], rgb_img.shape[0]))
+                    heatmap = np.uint8(255 * heatmap)
+                    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+                    heatmap = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB) / 255.0
 
-        plt.tight_layout()
-        plt.savefig(os.path.join(save_dir, 'class_activation_maps.png'), dpi=300)
-        plt.close()
+                    # 叠加
+                    superimposed = alpha * heatmap + (1 - alpha) * rgb_img
+
+                    plt.subplot(grid_size, grid_size, idx + 1)
+                    plt.imshow(superimposed)
+                    plt.title(f'class {label.item()}')
+                    plt.axis('off')
+
+            plt.tight_layout()
+            plt.savefig(os.path.join(save_dir, 'class_activation_maps_by_class.png'), dpi=300)
+            plt.close()
+        else:
+            # 保留原来的逻辑，按样本显示（当没有提供标签时）
+            n_samples = min(16, batch_size)
+            plt.figure(figsize=(20, 20))
+
+            for i in range(n_samples):
+                # 将输入图像转换为可视化格式
+                if input_data.dim() == 4:  # (B, C, H, W)
+                    # 高光谱图像通常需要特殊处理
+                    # 可视化选择的三个通道作为RGB
+                    c = input_data.shape[1]
+                    if c >= 3:
+                        # 选择三个较为平均分布的通道
+                        idx1, idx2, idx3 = c // 4, c // 2, c * 3 // 4
+                        rgb_img = torch.stack([
+                            input_data[i, idx1],
+                            input_data[i, idx2],
+                            input_data[i, idx3]
+                        ], dim=-1).cpu().numpy()
+                    else:
+                        # 单通道重复
+                        rgb_img = input_data[i, 0:1].repeat(1, 3).permute(1, 2, 0).cpu().numpy()
+
+                    # 归一化图像
+                    rgb_img = (rgb_img - rgb_img.min()) / (rgb_img.max() - rgb_img.min() + 1e-7)
+
+                    # CAM热力图
+                    heatmap = cam[i].cpu().numpy()
+                    heatmap = cv2.resize(heatmap, (rgb_img.shape[1], rgb_img.shape[0]))
+                    heatmap = np.uint8(255 * heatmap)
+                    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+                    heatmap = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB) / 255.0
+
+                    # 叠加
+                    superimposed = alpha * heatmap + (1 - alpha) * rgb_img
+
+                    plt.subplot(4, 4, i + 1)
+                    plt.imshow(superimposed)
+                    plt.title(f'class {i + 1}')
+                    plt.axis('off')
+
+            plt.tight_layout()
+            plt.savefig(os.path.join(save_dir, 'class_activation_maps.png'), dpi=300)
+            plt.close()
 
     def remove_hooks(self):
         """移除所有钩子"""
@@ -299,8 +378,7 @@ class AttentionVisualizer:
         self.hooks = []
 
 
-# python
-def visualize_mamba_attention(model, dataloader, device, save_dir, class_names=None, n_samples=16):
+def visualize_mamba_attention(model, dataloader, device, save_dir, class_names=None, n_samples=128):
     """Mamba注意力可视化主函数"""
     os.makedirs(save_dir, exist_ok=True)
     visualizer = AttentionVisualizer(model, device)
@@ -310,7 +388,7 @@ def visualize_mamba_attention(model, dataloader, device, save_dir, class_names=N
             inputs = inputs[:n_samples]
             labels = labels[:n_samples]
         batch_dir = os.path.join(save_dir, 'batch_attention')
-        visualizer.visualize_attention(inputs.to(device), batch_dir, class_names)
+        visualizer.visualize_attention(inputs.to(device), batch_dir, labels, class_names)
         if class_names:
             unique_labels = torch.unique(labels)
             for label in unique_labels:
@@ -318,6 +396,6 @@ def visualize_mamba_attention(model, dataloader, device, save_dir, class_names=N
                 if len(idx) > 0:
                     class_dir = os.path.join(save_dir, f'class_{label.item()}_{class_names[label.item()]}')
                     os.makedirs(class_dir, exist_ok=True)
-                    visualizer.visualize_attention(inputs[idx[:1]].to(device), class_dir)
+                    visualizer.visualize_attention(inputs[idx[:1]].to(device), class_dir, labels[idx[:1]])
         break
     visualizer.remove_hooks()
