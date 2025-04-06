@@ -495,7 +495,7 @@ def analyze_attention_weights(model_name, dataset_name, n_samples=16):
 
     _, test_loader, _ = create_three_loader(
         X_train, y_train, X_test, y_test, X_val, y_val,
-        config.batch_size, config.num_workers, dim=model.dim, logger=logger
+        256, config.num_workers, dim=model.dim, logger=logger
     )
 
     # 可视化注意力权重
