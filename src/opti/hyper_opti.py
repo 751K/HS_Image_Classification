@@ -16,12 +16,40 @@ from src.Train_and_Eval.model import set_seed
 from src.config import Config
 from src.datesets.datasets_load import load_dataset
 from src.Dim.api import apply_dimension_reduction
-from src.datesets.Dataset import prepare_data, HSIDataset
+from src.datesets.Dataset import prepare_data, HSIDataset, create_three_loader
 from src.Train_and_Eval.learing_rate import WarmupCosineSchedule
 from src.Train_and_Eval.train import train_model
 from src.Train_and_Eval.eval import evaluate_model
 from torch.utils.data import DataLoader
 from src.utils.paths import get_optuna_dir, get_plot_path, ensure_dir
+
+import gc
+import torch
+
+
+def clear_trial_cache(logger=None):
+    """
+    清除试验后的缓存以释放内存
+
+    Args:
+        logger: 可选的日志记录器
+    """
+    try:
+        # 清除CUDA缓存
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            if logger:
+                logger.info("CUDA缓存已清除")
+
+        # 强制垃圾回收
+        collected = gc.collect()
+        if logger:
+            logger.info(f"垃圾回收完成，收集了{collected}个对象")
+    except Exception as e:
+        if logger:
+            logger.warning(f"清除缓存时发生错误: {str(e)}")
+        else:
+            print(f"清除缓存时发生错误: {str(e)}")
 
 
 # TensorBoard日志保存
@@ -140,11 +168,6 @@ def objective(trial: Trial, config, logger, data, labels, num_classes, input_cha
     # 优化器衰减系数
     weight_decay = trial.suggest_float('weight_decay', 1e-5, 1e-3, log=True)  # 权重衰减范围
 
-    learning_rate = config.learning_rate
-    warmup_ratio = config.warmup_ratio
-    cycles = config.cycles
-    min_lr_ratio = config.min_lr_ratio
-    weight_decay = config.weight_decay
     feature_dim = config.feature_dim
 
     set_seed(config.seed)
@@ -165,9 +188,9 @@ def objective(trial: Trial, config, logger, data, labels, num_classes, input_cha
         f"准备的数据集形状: X_train: {X_train.shape}, y_train: {y_train.shape}, X_test: {X_test.shape}, y_test: {y_test.shape}")
 
     # 创建训练和验证数据加载器
-    train_loader, val_loader = create_data_loaders_for_optimization(
-        X_train, y_train, X_val, y_val, batch_size, config.num_workers,
-        dim=model.dim, logger=logger
+    train_loader, test_loader, val_loader = create_three_loader(
+        X_train, y_train, X_test, y_test, X_val, y_val, config.batch_size,
+        config.num_workers, dim=model.dim, logger=logger
     )
 
     # 设置训练过程的损失函数、优化器、学习率调度器等
@@ -202,7 +225,7 @@ def objective(trial: Trial, config, logger, data, labels, num_classes, input_cha
 
     # 评估模型
     model.load_state_dict(best_model_state_dict)
-    _, val_accuracy, _, _ = evaluate_model(model, val_loader, criterion, device, logger, class_result=False)
+    _, val_accuracy, _, _ = evaluate_model(model, test_loader, criterion, device, logger, class_result=False)
     oa, aa, kappa = val_accuracy
     writer.close()
 
@@ -210,6 +233,10 @@ def objective(trial: Trial, config, logger, data, labels, num_classes, input_cha
     trial.set_user_attr('best_val_accuracy', oa)
     logger.info(f"试验 {trial.number} 完成，验证准确率: {oa:.4f}")
     logger.info(f'平均准确率: {aa:.4f}, Kappa系数: {kappa:.4f}')
+
+    # 清理当前试验的缓存
+    del model, train_loader, val_loader, optimizer, scheduler, best_model_state_dict
+    clear_trial_cache(logger)
 
     return kappa
 
@@ -330,6 +357,7 @@ def main():
         logger.error(f"绘制学习率调度曲线时发生错误: {str(e)}")
 
     logger.info("程序执行完毕")
+    clear_trial_cache(logger)  # 最终清理
 
 
 if __name__ == '__main__':
