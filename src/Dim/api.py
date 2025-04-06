@@ -1,5 +1,5 @@
 from src.Dim.PCA import spectral_pca_reduction
-from src.Dim.kernel_PCA import spectral_kernel_pca_reduction
+from src.Dim.kernel_PCA import optimized_kernel_pca_reduction
 from src.Dim.MDS import spectral_mds_reduction
 from src.Dim.UMAP import spectral_umap_reduction
 from src.Dim.NMF import spectral_nmf_reduction
@@ -27,11 +27,9 @@ def apply_dimension_reduction(data, config, logger=None):
     if config.dim_reduction == 'PCA':
         reduced_data, _ = spectral_pca_reduction(data, n_components=config.n_components)
     elif config.dim_reduction == 'KernelPCA':
-        reduced_data, _ = spectral_kernel_pca_reduction(data=data,
-                                                        n_components=config.n_components,
-                                                        kernel=config.kpca_kernel,
-                                                        gamma=config.kpca_gamma,
-                                                        random_state=config.seed)
+        reduced_data, _ = optimized_kernel_pca_reduction(data=data, n_components=config.n_components,
+                                                         kernel=config.kpca_kernel)
+
     elif config.dim_reduction == 'MDS':
         reduced_data, _ = spectral_mds_reduction(data, n_components=config.n_components, random_state=config.seed)
     elif config.dim_reduction == 'UMAP':
