@@ -52,10 +52,10 @@ class Mamba2(nn.Module):
             device=self.device,
         )
 
-        # 使用合理的初始值初始化参数
         self.dt_bias = nn.Parameter(torch.zeros(self.nheads, device=self.device))
         self.A_log = nn.Parameter(torch.randn(self.nheads, device=self.device) * 0.1)
         self.D = nn.Parameter(torch.ones(self.nheads, device=self.device))
+
         self.norm = RMSNorm(self.d_inner, device=self.device)
         self.out_proj = nn.Linear(self.d_inner, d_model, bias=False, device=self.device)
 
@@ -73,15 +73,15 @@ class Mamba2(nn.Module):
         if original_seq_len % self.chunk_size != 0:
             # 计算需要填充的长度
             pad_len = self.chunk_size - (original_seq_len % self.chunk_size)
-            # 使用序列的平均值填充
-            if original_seq_len >= 5:
-                # 取最后5个位置的平均值
-                pad_values = torch.mean(u[:, -5:], dim=1, keepdim=True)
+            # 使用序列的开头值填充
+            if original_seq_len >= 4:
+                # 取前5个位置的平均值
+                pad_values = torch.mean(u[:, :5], dim=1, keepdim=True)
                 pad = pad_values.repeat(1, pad_len, 1)  # 使用平均值重复填充
             else:
-                # 序列太短时使用最后一个位置的值填充
-                pad = u[:, -1:].repeat(1, pad_len, 1)
-            u = torch.cat([u, pad], dim=1)
+                # 序列太短时使用第一个位置的值填充
+                pad = u[:, :1].repeat(1, pad_len, 1)
+            u = torch.cat([pad, u], dim=1)  # 在序列开头添加填充
 
         # 1. 输入投影与分割
         # u -> (batch, seqlen, d_model)
@@ -145,9 +145,10 @@ class Mamba2(nn.Module):
         y = self.norm(y, z)
         y = self.out_proj(y)
 
-        # 如果进行了填充，则裁剪回原始长度
+        # 如果进行了填充，则裁剪掉开头的填充部分
         if original_seq_len != seq_len:
-            y = y[:, :original_seq_len, :]
+            pad_len = seq_len - original_seq_len
+            y = y[:, pad_len:, :]
 
         return y
 
