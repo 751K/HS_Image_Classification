@@ -82,3 +82,68 @@ def evaluate_model(model, data_loader, criterion, device, logger, class_result=F
     logger.info("平均准确率 (AA): %.4f, Kappa 系数: %.4f", aa, kappa)
 
     return avg_loss, (overall_accuracy, aa, kappa), all_preds, all_labels
+
+
+def measure_inference_time(model, data_loader, device, logger, show_progress=True):
+    """
+    测量模型推理时间。
+
+    Args:
+        model (torch.nn.Module): 要测量的神经网络模型。
+        data_loader (torch.utils.data.DataLoader): 包含测试数据的 DataLoader。
+        device (torch.device): 用于计算的设备（CPU 或 GPU）。
+        logger (logging.Logger): 用于记录输出的日志对象。
+        show_progress (bool, optional): 是否显示进度条。默认为 True。
+
+    Returns:
+        tuple: 包含以下元素的元组：
+            - avg_sample_time (float): 平均每样本推理时间（毫秒）。
+            - fps (float): 每秒处理的样本数 (samples per second)。
+    """
+    import time
+
+    model.eval()
+    total_time = 0
+    total_samples = 0
+
+    with torch.no_grad():
+        if show_progress:
+            from tqdm import tqdm
+            data_iter = tqdm(data_loader, desc="推理时间测量", leave=True)
+        else:
+            data_iter = data_loader
+
+        for inputs, _ in data_iter:
+            batch_size = inputs.size(0)
+            inputs = inputs.to(device)
+
+            # 确保所有先前的GPU操作都已完成
+            if device != 'cpu' and torch.cuda.is_available():
+                torch.cuda.synchronize()
+
+            start_time = time.time()
+
+            # 执行推理
+            _ = model(inputs)
+
+            # 确保所有GPU操作都已完成
+            if device != 'cpu' and torch.cuda.is_available():
+                torch.cuda.synchronize()
+
+            end_time = time.time()
+
+            # 计算批次处理时间
+            batch_time = end_time - start_time
+            total_time += batch_time
+            total_samples += batch_size
+
+    # 计算统计数据
+    avg_sample_time = (total_time / total_samples) * 1000  # 转换为毫秒
+    fps = total_samples / total_time  # 每秒处理的样本数
+
+    logger.info(f"总推理时间: {total_time:.4f} 秒")
+    logger.info(f"平均每样本推理时间: {avg_sample_time:.4f} 毫秒")
+    logger.info(f"模型吞吐量: {fps:.2f} 样本/秒")
+    logger.info(f"总样本数: {total_samples}")
+
+    return avg_sample_time, fps
