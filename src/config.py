@@ -11,7 +11,7 @@ from src.utils.paths import create_experiment_dir
 
 class Config:
     def __init__(self):
-        self.test_mode = False
+        self.test_mode = True
 
         # 获取调用此类的文件名
         caller_frame = inspect.stack()[1]
@@ -23,6 +23,12 @@ class Config:
         self.vis_enable = False  # 是否可视化
 
         self.device = get_device()
+
+        self.multi_gpu = False
+        self.multi_gpu_flag = False
+
+        if self.device == torch.device('cuda') and torch.cuda.device_count() > 1:
+            self.multi_gpu_flag = True
 
         if caller_filename == 'main.py' and self.test_mode is not True:
             self.model_name = self.select_model()
@@ -126,17 +132,21 @@ class Config:
             self.num_classes = 22
         else:
             raise ValueError(f"Unsupported dataset: {self.datasets}. Supported datasets are: 'Indian', 'Pavia', "
-                             f"'Salinas', 'KSC', 'Botswana'")
+                             f"'Salinas', 'KSC', 'Botswana'， 'Wuhan'.")
 
-        self.patch_size = 9
+        if self.multi_gpu_flag:
+            self.batch_size = self.batch_size * torch.cuda.device_count()
+            self.learning_rate = self.learning_rate * torch.cuda.device_count()
+
+        self.patch_size = 25
 
         self.resume_checkpoint = None
         # self.resume_checkpoint = '../results/Salinas_AllinMamba_0309_1804/checkpoint_epoch_40.pth'
 
         # 降维相关配置
         self.perform_dim_reduction = True
-        self.dim_reduction = 'PCA'  # 可选: 'PCA', 'KernelPCA', 'MDS', 'UMAP'，‘NMF’, 'Concat'
-        self.n_components = 80  # 降维后的组件数
+        self.dim_reduction = 'KernelPCA'  # 可选: 'PCA', 'KernelPCA', 'MDS', 'UMAP'，‘NMF’, 'Concat'
+        self.n_components = 32  # 降维后的组件数
 
         self.pca_whiten = False
         self.kpca_kernel = 'rbf'
@@ -157,7 +167,7 @@ class Config:
             is_main=(caller_filename == 'main.py' and not self.test_mode)
         )
 
-        self.optuna_trials = 60  # Optuna 试验次数
+        self.optuna_trials = 100  # Optuna 试验次数
 
     @staticmethod
     def select_model():
