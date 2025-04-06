@@ -84,8 +84,6 @@ def spectral_pca_reduction(data, n_components=None):
 
 # 使用示例
 if __name__ == "__main__":
-    # 生成一个模拟的高光谱图像数据
-    np.random.seed(42)
     data, labels, dataset_info = load_dataset('Pavia')
 
     reduced_data, tmp = spectral_pca_reduction(data, n_components=80)
