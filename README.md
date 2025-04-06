@@ -38,7 +38,6 @@
 
 | 模型名称              | 类型          | 路径                                      |
 |-------------------|-------------|-----------------------------------------|
-| ResNet1D          | CNN         | `src.CNNBase.ResNet1D`                  |
 | ResNet2D          | CNN         | `src.CNNBase.ResNet2D`                  |
 | ResNet3D          | CNN         | `src.CNNBase.ResNet3D`                  |
 | HybridSN          | CNN         | `src.CNNBase.HybridSN`                  |
@@ -51,8 +50,7 @@
 | SSMamba           | Mamba       | `src.MambaBase.SSMamba`                 |
 | MambaHSI          | Mamba       | `src.MambaBase.MambaHSI`                |
 | STMamba           | Mamba       | `src.MambaBase.STMamba`                 |
-| SSMamba           | Mamba       | `src.MambaBase.SSMamba`                 |
-| MSAFMamba         | Mamba       | `src.MambaBase.MSAFMamba`               |
+| AllinMamba        | Mamba       | `src.MambaBase.AllinMamba`              |
 
 _模型实现仅供参考，具体的实现细节和参数设置可能会有所不同。请根据实际需求与论文进行对比和调整。_
 ### 模型拓展
