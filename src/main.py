@@ -17,7 +17,7 @@ from src.datesets.Dataset import prepare_data, create_three_loader
 from model_init import create_model
 from src.Dim.api import apply_dimension_reduction
 from src.datesets.datasets_load import load_dataset
-from src.Train_and_Eval.eval import evaluate_model
+from src.Train_and_Eval.eval import evaluate_model, measure_inference_time
 from src.Train_and_Eval.train import train_model
 from src.vis import visualize_classification
 from src.draw.matrix import plot_and_save_confusion_matrix
@@ -41,8 +41,10 @@ def main():
         device = config.device
         logger.info('使用设备: {}'.format(device))
 
-        if device == 'mps':
+        if device == torch.device('mps'):
             logger.warning("MPS下训练可能会导致不稳定的训练结果，请注意。")
+        if config.multi_gpu_flag:
+            logger.info(f"使用多GPU训练模型: {config.model_name}")
 
         # 加载和准备数据
         data, labels, dataset_info = load_dataset(config.datasets, logger)
@@ -57,6 +59,10 @@ def main():
 
         # 创建模型
         model = create_model(config.model_name, config, logger)
+
+        if config.multi_gpu_flag:
+            model = nn.DataParallel(model)
+            logger.info(f'使用多GPU训练模型: {config.model_name}')
 
         logger.info(f"模型创建完成：{config.model_name}")
 
@@ -124,6 +130,7 @@ def main():
         logger.info('测试集评估中...')
         avg_loss, accuracy, all_preds, all_labels = evaluate_model(model, test_loader, criterion,
                                                                    device, logger, class_result=True)
+        inference_time, fps = measure_inference_time(model, test_loader, device, logger, show_progress=False)
 
         # 保存结果和生成可视化
         results_save_path = os.path.join(config.save_dir, "test_results.json")

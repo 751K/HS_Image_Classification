@@ -1,5 +1,7 @@
 import os
 import torch
+from torch import nn
+
 from src.Train_and_Eval.eval import evaluate_model
 
 
@@ -76,7 +78,10 @@ def train_model(model, train_loader, test_loader, criterion, optimizer, schedule
 
         if test_accuracy > best_val_accuracy + min_delta:
             best_val_accuracy = test_accuracy
-            best_model = model.state_dict()
+            if isinstance(model, nn.DataParallel):
+                best_model = model.module.state_dict()
+            else:
+                best_model = model.state_dict()
             last_best_epoch = epoch
             patience_counter = 0
             logger.info('New best model saved with validation accuracy: %.4f', best_val_accuracy)
@@ -90,9 +95,10 @@ def train_model(model, train_loader, test_loader, criterion, optimizer, schedule
 
         # 每20个epoch保存一次检查点
         if (epoch + 1) % 20 == 0 and save_checkpoint:
+            model_state_dict = model.module.state_dict() if isinstance(model, nn.DataParallel) else model.state_dict()
             checkpoint = {
                 'epoch': epoch + 1,
-                'model_state_dict': model.state_dict(),
+                'model_state_dict': model_state_dict,
                 'optimizer_state_dict': optimizer.state_dict(),
                 'scheduler_state_dict': scheduler.state_dict(),
                 'best_val_accuracy': best_val_accuracy,
