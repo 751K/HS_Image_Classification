@@ -23,6 +23,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 from src.Train_and_Eval.learing_rate import WarmupCosineSchedule
+from utils.cache import clear_cache
 
 
 def measure_inference_time(model, test_loader, device):
@@ -194,11 +195,13 @@ def batch_run(dataset_name, models_to_run=None, result_dir=None):
             comparison_results["inference_time"].append(float(inference_time))  # 添加推理时间
 
             logger.info(f"模型 {model_name} 执行完成，OA: {oa:.4f}, AA: {aa:.4f}, Kappa: {kappa:.4f}")
-
+            del model, train_loader, test_loader, val_loader, optimizer, scheduler, best_model_state_dict, writer
+            clear_cache(logger)
         except Exception as e:
             logger.error(f"模型 {model_name} 执行失败: {str(e)}")
             import traceback
             logger.error(traceback.format_exc())
+            clear_cache(logger)
 
     # 保存总体比较结果
     comparison_df = pd.DataFrame(comparison_results)
@@ -261,6 +264,7 @@ def batch_run(dataset_name, models_to_run=None, result_dir=None):
     plt.savefig(os.path.join(result_dir, "inference_time_vs_accuracy.png"))
 
     logger.info(f"批量执行完成，结果已保存至 {result_dir}")
+    clear_cache(logger)
     return comparison_results
 
 
@@ -271,3 +275,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     batch_run(args.dataset, args.models)
+    clear_cache(None)

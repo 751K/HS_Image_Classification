@@ -11,7 +11,7 @@ from torch.utils.tensorboard import SummaryWriter
 from Train_and_Eval.model import set_seed
 from src.Train_and_Eval.learing_rate import WarmupCosineSchedule
 from src.utils.log import setup_logger, log_training_details
-from src.utils.paths import create_experiment_dir, create_comparison_dir, get_file_path
+from src.utils.paths import create_comparison_dir, get_file_path
 from config import Config
 from src.datesets.Dataset import prepare_data, create_three_loader
 from src.model_init import create_model
@@ -19,6 +19,7 @@ from src.Dim.api import apply_dimension_reduction
 from src.datesets.datasets_load import load_dataset
 from src.Train_and_Eval.eval import evaluate_model
 from src.Train_and_Eval.train import train_model
+from utils.cache import clear_cache
 
 
 def run_experiment(dataset_name, model_name):
@@ -29,10 +30,6 @@ def run_experiment(dataset_name, model_name):
         config.test_mode = False
         config.datasets = dataset_name
         config.model_name = model_name
-
-        # 设置批量大小，减小以防内存溢出
-        if dataset_name in ['Indian', 'Botswana', 'Salinas']:
-            config.batch_size = max(8, config.batch_size // 2)
 
         # 设置保存目录
         config.save_dir = create_comparison_dir(dataset_name, model_name)
@@ -162,12 +159,26 @@ def run_experiment(dataset_name, model_name):
 
         logger.info(
             f"数据集 {dataset_name} 实验完成，OA: {accuracy[0]:.4f}， AA: {accuracy[1]:.4f}, Kappa: {accuracy[2]:.4f}")
+
+        # 清理内存
+        logger.info("清理内存...")
+        del model, optimizer, scheduler, criterion, train_loader, test_loader, val_loader
+        del data, labels, X_train, y_train, X_test, y_test, X_val, y_val
+        clear_cache(logger)
+        logger.info("内存清理完成")
+
         return results
 
     except Exception as e:
         import traceback
         error_msg = f"数据集 {dataset_name} 实验失败: {str(e)}\n{''.join(traceback.format_tb(e.__traceback__))}"
         print(error_msg)
+
+        # 异常情况下也清理内存
+        print("清理内存...")
+        clear_cache(None)
+        print("内存清理完成")
+
         return {
             'dataset': dataset_name,
             'model': model_name,
@@ -181,7 +192,7 @@ def run_experiment(dataset_name, model_name):
 
 def main():
     # 设置要测试的数据集和模型
-    datasets = ['Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana']
+    datasets = ['Indian', 'Pavia', 'Salinas', 'Botswana', 'Wuhan']
     model_name = 'AllinMamba'  # 可根据需要更改模型
 
     # 保存所有结果
@@ -194,6 +205,10 @@ def main():
         result = run_experiment(dataset, model_name)
         if result:
             all_results.append(result)
+
+        # 每个数据集处理完后额外清理一次内存
+        print(f"完成 {dataset} 数据集，执行额外内存清理...")
+        clear_cache(None)
 
     # 创建比较结果目录
     compare_dir = create_comparison_dir()
