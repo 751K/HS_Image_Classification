@@ -24,6 +24,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 from src.Train_and_Eval.learing_rate import WarmupCosineSchedule
+from utils.cache import clear_cache
 
 
 def measure_inference_time(model, test_loader, device):
@@ -207,11 +208,14 @@ def compare_parameters_values(model_name, dataset_name, parameters_name, values,
             comparison_results["inference_time"].append(float(inference_time))
 
             logger.info(f"{parameters_name}={value}测试完成，OA: {oa:.4f}, AA: {aa:.4f}, Kappa: {kappa:.4f}")
+            del model, optimizer, scheduler, best_model_state_dict
+            clear_cache(logger)
 
         except Exception as e:
             logger.error(f"{parameters_name}={value}测试失败: {str(e)}")
             import traceback
             logger.error(traceback.format_exc())
+            clear_cache(logger)
 
     # 保存总体比较结果
     comparison_df = pd.DataFrame(comparison_results)
@@ -268,6 +272,7 @@ def compare_parameters_values(model_name, dataset_name, parameters_name, values,
     plt.savefig(os.path.join(result_dir, f"{parameters_name}_vs_kappa_and_time.png"))
 
     logger.info(f"比较完成，结果已保存至 {result_dir}")
+    clear_cache(logger)
     return comparison_results
 
 
@@ -275,10 +280,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="比较模型在不同参数下的性能")
     parser.add_argument("--model", type=str, default="AllinMamba", help="模型名称")
     parser.add_argument("--dataset", type=str, default="Indian", help="数据集名称")
-    parser.add_argument("--parameters_name", type=str, default="batch_size", )
-    parser.add_argument("--value", type=int, nargs="+",
-                        default=[2, 4, 8, 16, 32, 64, 128],
-                        help="要测试的参数值列表")
+    parser.add_argument("--parameters_name", type=str, default="learning_rate", )
+    # parser.add_argument("--value", type=float, nargs="+",
+    #                     default=[round(i * 0.5 / 29, 3) for i in range(30)],
+    #                     help="要测试的参数值列表，默认为0到0.5之间的30个均匀分布点")
+    parser.add_argument("--value", type=float, nargs="+",
+                        default=[1e-5 + (1e-3 - 1e-5) * i / 29 for i in range(30)],
+                        help="要测试的学习率列表，默认为从1e-5到1e-3之间均匀分布的30个值")
     args = parser.parse_args()
 
     compare_parameters_values(args.model, args.dataset, args.parameters_name, args.value)
+    clear_cache(None)
