@@ -20,7 +20,7 @@ class HSIDataset(Dataset):
         return self.data[idx], self.labels[idx]
 
 
-def create_patches(input_data: np.ndarray, input_labels: np.ndarray, patch_size: int = 5, batch_size: int = 1000):
+def create_patches(input_data: np.ndarray, input_labels: np.ndarray, patch_size: int = 5, batch_size: int = 1024):
     """通过分批处理减少内存峰值使用"""
     rows, cols, bands = input_data.shape
     pad_width = patch_size // 2
