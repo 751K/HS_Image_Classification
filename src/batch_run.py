@@ -54,9 +54,11 @@ def measure_inference_time(model, test_loader, device):
 def batch_run(dataset_name, models_to_run=None, result_dir=None):
     """批量执行多个模型并保存比较结果"""
     # 创建结果目录
-    timestamp = datetime.now().strftime("%m%d_%H%M")
+    from src.utils.paths import create_batch_result_dir
+
+    # 修改结果目录创建逻辑
     if result_dir is None:
-        result_dir = f"../results/batch_comparison_{dataset_name}_{timestamp}"
+        result_dir = create_batch_result_dir(dataset_name=dataset_name)
     os.makedirs(result_dir, exist_ok=True)
 
     # 设置日志

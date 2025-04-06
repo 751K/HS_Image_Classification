@@ -12,7 +12,7 @@ from datetime import datetime
 from src.MambaBase.Mamba2 import Mamba2
 from src.MambaBase.AllinMamba import AllinMamba
 from src.utils.device import get_device
-from src.utils.paths import ROOT_DIR, ensure_dir, sanitize_filename
+from src.utils.paths import ROOT_DIR, ensure_dir, sanitize_filename, create_model_analysis_dir, MODEL_ANALYSIS_DIR
 
 # 创建模型分析专用目录
 ANALYSIS_DIR = os.path.join(ROOT_DIR, "model_analysis")
@@ -153,14 +153,6 @@ def export_results(parameters, layer_parameters, throughput, flops, output_dir):
     plt.savefig(os.path.join(output_dir, 'layer_parameters.png'))
 
 
-def create_analysis_dir(model_name, channels, patch_size):
-    """创建模型分析结果目录"""
-    timestamp = datetime.now().strftime('%m%d_%H%M')
-    folder_name = f"{model_name}_c{channels}_p{patch_size}_{timestamp}"
-    save_dir = os.path.join(ANALYSIS_DIR, folder_name)
-    return ensure_dir(save_dir)
-
-
 def analyze_model(model_name, model_params, input_shape, output_dir=None, batch_sizes=[1, 2, 4, 8, 16, 32, 64]):
     """分析模型并导出结果"""
     device = get_device()
@@ -168,9 +160,9 @@ def analyze_model(model_name, model_params, input_shape, output_dir=None, batch_
 
     # 如果未提供输出目录，创建默认目录
     if output_dir is None:
-        output_dir = create_analysis_dir(model_name,
-                                         model_params.get('input_channels', 0),
-                                         model_params.get('patch_size', 0))
+        output_dir = create_model_analysis_dir(model_name=model_name, channels=model_params.get('input_channels', 0),
+                                               patch_size=model_params.get('patch_size', 0)
+                                               )
     else:
         # 确保提供的目录存在
         output_dir = ensure_dir(output_dir)
@@ -216,6 +208,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # 设置模型参数
+    model_params = {}
     if args.model == 'AllinMamba':
         model_params = {
             'input_channels': args.channels,
@@ -238,10 +231,9 @@ if __name__ == "__main__":
     # 如果指定了输出目录
     output_dir = args.output
     if output_dir is None:
-        # 使用自动生成的目录
         pass
     elif not os.path.isabs(output_dir):
         # 如果是相对路径，将其放在ANALYSIS_DIR下
-        output_dir = os.path.join(ANALYSIS_DIR, output_dir)
+        output_dir = os.path.join(MODEL_ANALYSIS_DIR, output_dir)
 
     analyze_model(args.model, model_params, input_shape, output_dir, batch_sizes)

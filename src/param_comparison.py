@@ -55,9 +55,11 @@ def measure_inference_time(model, test_loader, device):
 def compare_parameters_values(model_name, dataset_name, parameters_name, values, result_dir=None):
     """比较模型在不同参数下的性能"""
     # 创建结果目录
-    timestamp = datetime.now().strftime("%m%d_%H%M")
+    from src.utils.paths import create_param_comparison_dir
+
+    # 修改结果目录创建逻辑
     if result_dir is None:
-        result_dir = f"../results/{model_name}_{parameters_name}_comparison_{dataset_name}_{timestamp}"
+        result_dir = create_param_comparison_dir(model_name, parameters_name, dataset_name)
     os.makedirs(result_dir, exist_ok=True)
 
     # 设置日志
