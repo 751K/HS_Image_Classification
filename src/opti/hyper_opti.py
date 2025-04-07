@@ -238,7 +238,7 @@ def objective(trial: Trial, config, logger, data, labels, num_classes, input_cha
     del model, train_loader, val_loader, optimizer, scheduler, best_model_state_dict
     clear_trial_cache(logger)
 
-    return kappa
+    return (oa+aa+kappa)/3
 
 
 def plot_lr_schedule(config, best_params, save_path=None):
