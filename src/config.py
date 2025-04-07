@@ -38,7 +38,7 @@ class Config:
             self.num_epochs = 80
             # torch.autograd.set_detect_anomaly(True)
 
-        self.datasets = 'Indian'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana', 'Wuhan'
+        self.datasets = 'Wuhan'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana', 'Wuhan'
 
         self.num_workers = 0
 
@@ -120,14 +120,16 @@ class Config:
         elif self.datasets == 'Wuhan':
             self.batch_size = 64
             self.mlp_dim = 32
-            self.dropout = 0.129859960550872
-            self.d_state = 64
-            self.cycles = 0.50
-            self.expand = 8
-            self.learning_rate = 0.0005144888086719854
-            self.warmup_ratio = 0.010269880544951123
-            self.min_lr_ratio = 0.1855273798968476
-            self.weight_decay = 0.00015654784836898332
+            self.dropout = 0.3365819719387231
+            self.d_state = 96
+            self.cycles = 0.9085242721331501
+            self.head_dim = 8
+            self.d_conv = 4
+            self.expand = 16
+            self.learning_rate = 0.0007742320544396837
+            self.warmup_ratio = 0.057967770097392214
+            self.min_lr_ratio = 0.19095951952778517
+            self.weight_decay = 4.546505725523656e-05
             self.test_size = 0.95
             self.num_classes = 22
         else:
@@ -138,7 +140,7 @@ class Config:
             self.batch_size = self.batch_size * torch.cuda.device_count()
             self.learning_rate = self.learning_rate * torch.cuda.device_count()
 
-        self.patch_size = 25
+        self.patch_size = 9
 
         self.resume_checkpoint = None
         # self.resume_checkpoint = '../results/Salinas_AllinMamba_0309_1804/checkpoint_epoch_40.pth'
@@ -167,7 +169,7 @@ class Config:
             is_main=(caller_filename == 'main.py' and not self.test_mode)
         )
 
-        self.optuna_trials = 100  # Optuna 试验次数
+        self.optuna_trials = 40  # Optuna 试验次数
 
     @staticmethod
     def select_model():

@@ -18,7 +18,7 @@ from src.Dim.api import apply_dimension_reduction
 from model_init import AVAILABLE_MODELS, create_model
 from src.datesets.Dataset import prepare_data, create_three_loader
 from src.Train_and_Eval.train import train_model
-from src.Train_and_Eval.eval import evaluate_model
+from src.Train_and_Eval.eval import evaluate_model, evaluate_class
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
@@ -147,7 +147,7 @@ def batch_run(dataset_name, models_to_run=None, result_dir=None):
             # 训练模型 - 使用原始train_model函数
             best_model_state_dict = train_model(
                 model, train_loader, val_loader, criterion, optimizer, scheduler,
-                config.num_epochs, device, writer, logger, 0, config,save_checkpoint=False
+                config.num_epochs, device, writer, logger, 0, config, save_checkpoint=False
             )
 
             training_time = (datetime.now() - start_time).total_seconds()
@@ -168,8 +168,9 @@ def batch_run(dataset_name, models_to_run=None, result_dir=None):
             avg_loss, accuracy, all_preds, all_labels = evaluate_model(
                 model, test_loader, criterion, device, logger, class_result=True
             )
+            avg_loss,oa,aa,kappa,class_accuracies = accuracy
 
-            oa, aa, kappa = accuracy
+            oa, aa, kappa = evaluate_class(model, test_loader, criterion, device, logger)
 
             # 保存结果
             model_result = {

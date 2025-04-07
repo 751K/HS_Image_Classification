@@ -105,6 +105,8 @@ def compare_parameters_values(model_name, dataset_name, parameters_name, values,
     # 创建基础模型以获取维度信息
     base_model = create_model(config.model_name, config, logger)
 
+    logger.info(config.test_size)
+
     X_train, y_train, X_test, y_test, X_val, y_val = prepare_data(
         data, labels, test_size=config.test_size,
         dim=base_model.dim, patch_size=config.patch_size,
@@ -127,7 +129,7 @@ def compare_parameters_values(model_name, dataset_name, parameters_name, values,
             os.makedirs(config_copy.save_dir, exist_ok=True)
             setattr(config_copy, parameters_name, value)
 
-            if parameters_name == "patch_size":
+            if parameters_name == "patch_size" or parameters_name == "test_size" or parameters_name == "random_state":
                 X_train, y_train, X_test, y_test, X_val, y_val = prepare_data(
                     data, labels, test_size=config_copy.test_size,
                     dim=base_model.dim, patch_size=config_copy.patch_size,
@@ -290,11 +292,17 @@ def compare_parameters_values(model_name, dataset_name, parameters_name, values,
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="比较模型在不同参数下的性能")
     parser.add_argument("--model", type=str, default="AllinMamba", help="模型名称")
-    parser.add_argument("--dataset", type=str, default="Indian", help="数据集名称")
-    parser.add_argument("--parameters_name", type=str, default="patch_size", )
-    parser.add_argument("--value", type=int, default=[5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33],
+    parser.add_argument("--dataset", type=str, default="Wuhan", help="数据集名称")
+    parser.add_argument("--parameters_name", type=str, default="test_size", )
+    parser.add_argument("--value", type=float,
+                        default=[0.99, 0.98, 0.97, 0.96, 0.95, 0.94],
                         nargs='+',
                         help="参数值列表")
+    # parser.add_argument("--value", type=int,
+    #                     default=[5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27],
+    #                     nargs='+',
+    #                     help="参数值列表")
+
     args = parser.parse_args()
 
     compare_parameters_values(args.model, args.dataset, args.parameters_name, args.value)

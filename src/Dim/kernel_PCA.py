@@ -168,10 +168,10 @@ if __name__ == "__main__":
     from src.datesets.datasets_load import load_dataset
 
     # 加载数据集
-    data, labels, dataset_info = load_dataset('Indian')
+    data, labels, dataset_info = load_dataset('Wuhan')
 
     # 应用优化的核PCA光谱降维
-    n_components = 60
+    n_components = 32
     reduced_data, metrics = optimized_kernel_pca_reduction(
         data,
         n_components=n_components,
