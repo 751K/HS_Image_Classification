@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 # 读取CSV数据
-df = pd.read_csv('model_comparison.csv')
+df = pd.read_csv('model_comodel_comparison_Indian.csvmparison_Indian.csv')
 
 # 获取模型名称列表
 models = df['models'].tolist()
