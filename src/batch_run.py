@@ -207,7 +207,7 @@ def batch_run(dataset_name, models_to_run=None, result_dir=None):
 
     # 保存总体比较结果
     comparison_df = pd.DataFrame(comparison_results)
-    comparison_df.to_csv(os.path.join(result_dir, "model_comparison.csv"), index=False)
+    comparison_df.to_csv(os.path.join(result_dir, f"model_comparison_{dataset_name}.csv"), index=False)
 
     # 分组柱状图同时展示OA、AA和Kappa
     x = np.arange(len(comparison_results["models"]))  # 模型位置
@@ -272,7 +272,7 @@ def batch_run(dataset_name, models_to_run=None, result_dir=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="批量执行模型比较")
-    parser.add_argument("--dataset", type=str, default="Indian", help="数据集名称")
+    parser.add_argument("--dataset", type=str, default="Wuhan", help="数据集名称")
     parser.add_argument("--models", type=str, nargs="+", help="要运行的模型列表，不指定则运行所有模型")
     args = parser.parse_args()
 
