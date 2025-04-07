@@ -110,7 +110,6 @@ def compare_parameters_values(model_name, dataset_name, parameters_name, values,
         dim=base_model.dim, patch_size=config.patch_size,
         random_state=config.seed, logger=logger
     )
-
     train_loader, test_loader, val_loader = create_three_loader(
         X_train, y_train, X_test, y_test, X_val, y_val,
         config.batch_size, config.num_workers, dim=base_model.dim, logger=logger
@@ -128,14 +127,24 @@ def compare_parameters_values(model_name, dataset_name, parameters_name, values,
             os.makedirs(config_copy.save_dir, exist_ok=True)
             setattr(config_copy, parameters_name, value)
 
+            if parameters_name == "patch_size":
+                X_train, y_train, X_test, y_test, X_val, y_val = prepare_data(
+                    data, labels, test_size=config_copy.test_size,
+                    dim=base_model.dim, patch_size=config_copy.patch_size,
+                    random_state=config_copy.seed, logger=logger
+                )
+                train_loader, test_loader, val_loader = create_three_loader(
+                    X_train, y_train, X_test, y_test, X_val, y_val,
+                    config_copy.batch_size, config_copy.num_workers, dim=base_model.dim, logger=logger
+                )
+            elif parameters_name == "batch_size":
+                train_loader, test_loader, val_loader = create_three_loader(
+                    X_train, y_train, X_test, y_test, X_val, y_val,
+                    config_copy.batch_size, config_copy.num_workers, dim=base_model.dim, logger=logger
+                )
+
             # 创建模型 - 带有特定的参数
             model = create_model(model_name, config_copy, logger)
-
-            # 检查并调整类别数
-            if hasattr(model, 'adjust_num_classes') and hasattr(model, 'num_classes'):
-                if model.num_classes != num_classes:
-                    logger.warning(f"调整模型类别数: {model.num_classes} -> {num_classes}")
-                    model.adjust_num_classes(num_classes)
 
             # 设置训练参数
             criterion = nn.CrossEntropyLoss()
@@ -282,13 +291,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="比较模型在不同参数下的性能")
     parser.add_argument("--model", type=str, default="AllinMamba", help="模型名称")
     parser.add_argument("--dataset", type=str, default="Indian", help="数据集名称")
-    parser.add_argument("--parameters_name", type=str, default="learning_rate", )
-    # parser.add_argument("--value", type=float, nargs="+",
-    #                     default=[round(i * 0.5 / 29, 3) for i in range(30)],
-    #                     help="要测试的参数值列表，默认为0到0.5之间的30个均匀分布点")
-    parser.add_argument("--value", type=float, nargs="+",
-                        default=[1e-5 + (1e-3 - 1e-5) * i / 29 for i in range(30)],
-                        help="要测试的学习率列表，默认为从1e-5到1e-3之间均匀分布的30个值")
+    parser.add_argument("--parameters_name", type=str, default="patch_size", )
+    parser.add_argument("--value", type=int, default=[5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33],
+                        nargs='+',
+                        help="参数值列表")
     args = parser.parse_args()
 
     compare_parameters_values(args.model, args.dataset, args.parameters_name, args.value)
