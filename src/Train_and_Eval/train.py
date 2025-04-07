@@ -6,7 +6,7 @@ from src.Train_and_Eval.eval import evaluate_model
 
 
 def train_model(model, train_loader, test_loader, criterion, optimizer, scheduler, num_epochs, device, writer, logger,
-                start_epoch=0, config=None, save_checkpoint=True):
+                start_epoch=0, config=None, save_checkpoint=False):
     """
     训练模型并在验证集上评估。
 
@@ -18,7 +18,7 @@ def train_model(model, train_loader, test_loader, criterion, optimizer, schedule
         optimizer (torch.optim.Optimizer): 优化器。
         scheduler (torch.optim.lr_scheduler._LRScheduler): 学习率调度器。
         num_epochs (int): 要训练的总轮数。
-        device (torch.device): 用于计算的设备（CPU 或 GPU）。
+        device (torch.device): 用于计算的设备。
         writer (torch.utils.tensorboard.SummaryWriter): 用于 TensorBoard 可视化的 SummaryWriter 对象。
         logger (logging.Logger): 用于记录输出的日志对象。
         start_epoch (int, optional): 开始训练的轮数。用于恢复中断的训练。默认为 0。
