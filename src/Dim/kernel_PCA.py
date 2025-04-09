@@ -92,7 +92,6 @@ def optimized_kernel_pca_reduction(data, n_components=20, kernel='rbf', gamma=No
     reduced_data = reduced_data_2d.reshape(height, width, n_components)
 
     # 计算指标
-    # 计算指标
     explained_variance_ratio = pca.eigenvalues_ / np.sum(pca.eigenvalues_)
     cumulative_explained_variance_ratio = np.cumsum(explained_variance_ratio)
 

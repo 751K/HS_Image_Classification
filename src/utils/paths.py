@@ -83,11 +83,11 @@ BATCH_RESULTS_DIR = os.path.join(ROOT_DIR, "batch_result")
 ensure_dir(BATCH_RESULTS_DIR)
 
 
-def create_batch_result_dir(dataset_name=None):
+def create_batch_result_dir(dataset_name=None, patch_size=None):
     """创建批处理结果目录"""
     timestamp = datetime.now().strftime('%m%d_%H%M')
-    if dataset_name:
-        folder_name = f"comparison_{dataset_name}_{timestamp}"
+    if dataset_name and patch_size:
+        folder_name = f"comparison_{dataset_name}_{patch_size}_{timestamp}"
     else:
         folder_name = f"comparison_{timestamp}"
     save_dir = os.path.join(BATCH_RESULTS_DIR, folder_name)

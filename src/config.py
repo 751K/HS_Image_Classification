@@ -38,7 +38,7 @@ class Config:
             self.num_epochs = 80
             # torch.autograd.set_detect_anomaly(True)
 
-        self.datasets = 'Wuhan'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana', 'Wuhan'
+        self.datasets = 'Indian'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana', 'Wuhan'
 
         self.num_workers = 0
 

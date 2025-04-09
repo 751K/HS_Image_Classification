@@ -88,8 +88,8 @@ def compare_parameters_values(model_name, dataset_name, parameters_name, values,
     set_seed(config.seed)
 
     # 加载数据
-    data, labels, dataset_info = load_dataset(config.datasets, logger)
-    data = apply_dimension_reduction(data, config, logger)
+    root_data, labels, dataset_info = load_dataset(config.datasets, logger)
+    data = apply_dimension_reduction(root_data, config, logger)
 
     # 获取不带背景的类别数
     num_classes = config.num_classes
@@ -128,8 +128,10 @@ def compare_parameters_values(model_name, dataset_name, parameters_name, values,
             config_copy.save_dir = os.path.join(result_dir, f"{parameters_name}_{value_str}")
             os.makedirs(config_copy.save_dir, exist_ok=True)
             setattr(config_copy, parameters_name, value)
-
-            if parameters_name == "patch_size" or parameters_name == "test_size" or parameters_name == "random_state":
+            logger.info(f'重载参数{parameters_name}={getattr(config_copy, parameters_name)}')
+            data = apply_dimension_reduction(root_data, config_copy, logger)
+            if parameters_name in {"patch_size", "test_size", "random_state", "n_components"}:
+                logger.info('重新划分数据集...')
                 X_train, y_train, X_test, y_test, X_val, y_val = prepare_data(
                     data, labels, test_size=config_copy.test_size,
                     dim=base_model.dim, patch_size=config_copy.patch_size,
@@ -140,6 +142,7 @@ def compare_parameters_values(model_name, dataset_name, parameters_name, values,
                     config_copy.batch_size, config_copy.num_workers, dim=base_model.dim, logger=logger
                 )
             elif parameters_name == "batch_size":
+                logger.info('重新创建dataloader...')
                 train_loader, test_loader, val_loader = create_three_loader(
                     X_train, y_train, X_test, y_test, X_val, y_val,
                     config_copy.batch_size, config_copy.num_workers, dim=base_model.dim, logger=logger
@@ -227,12 +230,13 @@ def compare_parameters_values(model_name, dataset_name, parameters_name, values,
         except Exception as e:
             logger.error(f"{parameters_name}={value}测试失败: {str(e)}")
             import traceback
+
             logger.error(traceback.format_exc())
             clear_cache(logger)
 
     # 保存总体比较结果
     comparison_df = pd.DataFrame(comparison_results)
-    comparison_df.to_csv(os.path.join(result_dir, f"{parameters_name}_comparison.csv"), index=False)
+    comparison_df.to_csv(os.path.join(result_dir, f"{parameters_name}_{dataset_name}_comparison.csv"), index=False)
 
     # 绘制values vs kappa
     plt.figure(figsize=(10, 6))
@@ -292,16 +296,16 @@ def compare_parameters_values(model_name, dataset_name, parameters_name, values,
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="比较模型在不同参数下的性能")
     parser.add_argument("--model", type=str, default="AllinMamba", help="模型名称")
-    parser.add_argument("--dataset", type=str, default="Wuhan", help="数据集名称")
-    parser.add_argument("--parameters_name", type=str, default="test_size", )
-    parser.add_argument("--value", type=float,
-                        default=[0.99, 0.98, 0.97, 0.96, 0.95, 0.94],
-                        nargs='+',
-                        help="参数值列表")
-    # parser.add_argument("--value", type=int,
-    #                     default=[5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27],
+    parser.add_argument("--dataset", type=str, default="Indian", help="数据集名称")
+    parser.add_argument("--parameters_name", type=str, default="feature_dim", )
+    # parser.add_argument("--value", type=float,
+    #                     default=[0.99, 0.98, 0.97, 0.96, 0.95, 0.94],
     #                     nargs='+',
     #                     help="参数值列表")
+    parser.add_argument("--value", type=int,
+                        default=[32, 40, 56, 64, 80, 96, 112, 128, 160],
+                        nargs='+',
+                        help="参数值列表")
 
     args = parser.parse_args()
 

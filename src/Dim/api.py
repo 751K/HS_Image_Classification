@@ -1,8 +1,8 @@
 from src.Dim.PCA import spectral_pca_reduction
 from src.Dim.kernel_PCA import optimized_kernel_pca_reduction
-from src.Dim.MDS import spectral_mds_reduction
-from src.Dim.UMAP import spectral_umap_reduction
-from src.Dim.NMF import spectral_nmf_reduction
+from src.Dim.MDS import optimized_mds_reduction
+from src.Dim.UMAP import optimized_umap_reduction
+from src.Dim.NMF import optimized_nmf_reduction
 
 
 def apply_dimension_reduction(data, config, logger=None):
@@ -29,22 +29,15 @@ def apply_dimension_reduction(data, config, logger=None):
     elif config.dim_reduction == 'KernelPCA':
         reduced_data, _ = optimized_kernel_pca_reduction(data=data, n_components=config.n_components,
                                                          kernel=config.kpca_kernel)
+    # TODO：fix bugs
 
     elif config.dim_reduction == 'MDS':
-        reduced_data, _ = spectral_mds_reduction(data, n_components=config.n_components, random_state=config.seed)
+        reduced_data, _ = optimized_mds_reduction(data=data, n_components=config.n_components, random_state=config.seed)
     elif config.dim_reduction == 'UMAP':
-        reduced_data = spectral_umap_reduction(data,
-                                               n_components=config.n_components,
-                                               n_neighbors=config.umap_n_neighbors,
-                                               min_dist=config.umap_min_dist,
-                                               random_seed=config.seed)
+        reduced_data, _ = optimized_umap_reduction(data=data, n_components=config.n_components,min_dist=config.umap_min_dist,
+                                                   random_state=config.seed)
     elif config.dim_reduction == 'NMF':
-        reduced_data, _ = spectral_nmf_reduction(data, n_components=config.n_components)
-    elif config.dim_reduction == 'Concat':
-        reduced_data_pca, _ = spectral_pca_reduction(data, n_components=30)
-        import numpy as np
-        data = spectral_pca_reduction(data, n_components=150)
-        reduced_data = np.concatenate((data, reduced_data_pca), axis=2)
+        reduced_data, _ = optimized_nmf_reduction(data, n_components=config.n_components)
     else:
         raise ValueError(f"Unsupported dimension reduction method: {config.dim_reduction}")
     if logger is not None:

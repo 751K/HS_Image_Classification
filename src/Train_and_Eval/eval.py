@@ -84,7 +84,7 @@ def evaluate_model(model, data_loader, criterion, device, logger, class_result=F
     return avg_loss, (overall_accuracy, aa, kappa), all_preds, all_labels
 
 
-def measure_inference_time(model, data_loader, device, logger, show_progress=True):
+def measure_inference_time(model, data_loader, device, logger, show_progress=True, num_batches=10):
     """
     测量模型推理时间。
 
@@ -94,6 +94,7 @@ def measure_inference_time(model, data_loader, device, logger, show_progress=Tru
         device (torch.device): 用于计算的设备（CPU 或 GPU）。
         logger (logging.Logger): 用于记录输出的日志对象。
         show_progress (bool, optional): 是否显示进度条。默认为 True。
+        num_batches (int, optional): 用于测量的batch数量。默认为10。
 
     Returns:
         tuple: 包含以下元素的元组：
@@ -105,11 +106,12 @@ def measure_inference_time(model, data_loader, device, logger, show_progress=Tru
     model.eval()
     total_time = 0
     total_samples = 0
+    batch_count = 0
 
     with torch.no_grad():
         if show_progress:
             from tqdm import tqdm
-            data_iter = tqdm(data_loader, desc="推理时间测量", leave=True)
+            data_iter = tqdm(data_loader, desc="推理时间测量", leave=True, total=num_batches)
         else:
             data_iter = data_loader
 
@@ -136,6 +138,10 @@ def measure_inference_time(model, data_loader, device, logger, show_progress=Tru
             batch_time = end_time - start_time
             total_time += batch_time
             total_samples += batch_size
+
+            batch_count += 1
+            if batch_count >= num_batches:
+                break
 
     # 计算统计数据
     avg_sample_time = (total_time / total_samples) * 1000  # 转换为毫秒

@@ -18,7 +18,7 @@ from src.Dim.api import apply_dimension_reduction
 from model_init import AVAILABLE_MODELS, create_model
 from src.datesets.Dataset import prepare_data, create_three_loader
 from src.Train_and_Eval.train import train_model
-from src.Train_and_Eval.eval import evaluate_model, evaluate_class
+from src.Train_and_Eval.eval import evaluate_class
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
@@ -56,9 +56,12 @@ def batch_run(dataset_name, models_to_run=None, result_dir=None):
     # 创建结果目录
     from src.utils.paths import create_batch_result_dir
 
+    config = Config()
+    config.datasets = dataset_name
+
     # 修改结果目录创建逻辑
     if result_dir is None:
-        result_dir = create_batch_result_dir(dataset_name=dataset_name)
+        result_dir = create_batch_result_dir(dataset_name=dataset_name, patch_size=config.patch_size)
     os.makedirs(result_dir, exist_ok=True)
 
     # 设置日志
@@ -86,7 +89,10 @@ def batch_run(dataset_name, models_to_run=None, result_dir=None):
     logger.info(f"加载数据集: {dataset_name}")
     config = Config()
     config.datasets = dataset_name
-    config.test_mode = False  # 确保是训练模式
+
+    # 为每个类别创建空列表
+    for i in range(config.num_classes):
+        comparison_results[f"class_{i + 1}_accuracy"] = []
 
     set_seed(config.seed)
 
@@ -164,13 +170,7 @@ def batch_run(dataset_name, models_to_run=None, result_dir=None):
             inference_time = measure_inference_time(model, test_loader, device)
             logger.info(f"模型 {model_name} 的平均推理时间: {inference_time:.2f} 毫秒/样本")
 
-            # 评估模型
-            avg_loss, accuracy, all_preds, all_labels = evaluate_model(
-                model, test_loader, criterion, device, logger, class_result=True
-            )
-            avg_loss,oa,aa,kappa,class_accuracies = accuracy
-
-            oa, aa, kappa = evaluate_class(model, test_loader, criterion, device, logger)
+            avg_loss, oa, aa, kappa, class_accuracies = evaluate_class(model, test_loader, criterion, device, logger)
 
             # 保存结果
             model_result = {
@@ -183,6 +183,10 @@ def batch_run(dataset_name, models_to_run=None, result_dir=None):
                 "parameters": sum(p.numel() for p in model.parameters()),
                 "inference_time": float(inference_time)  # 添加推理时间
             }
+
+            # 添加每个类别的准确率
+            for i, acc in enumerate(class_accuracies):
+                model_result[f"class_{i + 1}_accuracy"] = float(acc)
 
             # 保存单个模型结果
             with open(os.path.join(config.save_dir, "results.json"), "w") as f:
@@ -197,6 +201,10 @@ def batch_run(dataset_name, models_to_run=None, result_dir=None):
             comparison_results["parameters"].append(sum(p.numel() for p in model.parameters()))
             comparison_results["inference_time"].append(float(inference_time))  # 添加推理时间
 
+            # 添加每个类别的准确率
+            for i, acc in enumerate(class_accuracies):
+                comparison_results[f"class_{i + 1}_accuracy"].append(float(acc))
+
             logger.info(f"模型 {model_name} 执行完成，OA: {oa:.4f}, AA: {aa:.4f}, Kappa: {kappa:.4f}")
             del model, train_loader, test_loader, val_loader, optimizer, scheduler, best_model_state_dict, writer
             clear_cache(logger)
@@ -204,11 +212,25 @@ def batch_run(dataset_name, models_to_run=None, result_dir=None):
             logger.error(f"模型 {model_name} 执行失败: {str(e)}")
             import traceback
             logger.error(traceback.format_exc())
+            # 添加占位符数据到比较结果，确保所有列表长度一致
+            comparison_results["models"].append(model_name)
+            comparison_results["accuracy"].append(float('nan'))  # 使用NaN表示失败
+            comparison_results["aa"].append(float('nan'))
+            comparison_results["kappa"].append(float('nan'))
+            comparison_results["training_time"].append(float('nan'))
+            comparison_results["parameters"].append(float('nan'))
+            comparison_results["inference_time"].append(float('nan'))
+
+            # 为每个类别添加占位符
+            for i in range(config.num_classes):
+                comparison_results[f"class_{i + 1}_accuracy"].append(float('nan'))
+            logger.error(traceback.format_exc())
             clear_cache(logger)
 
     # 保存总体比较结果
     comparison_df = pd.DataFrame(comparison_results)
-    comparison_df.to_csv(os.path.join(result_dir, f"model_comparison_{dataset_name}.csv"), index=False)
+    comparison_df.to_csv(os.path.join(result_dir, f"model_comparison_{dataset_name}_{config.patch_size}.csv"),
+                         index=False)
 
     # 分组柱状图同时展示OA、AA和Kappa
     x = np.arange(len(comparison_results["models"]))  # 模型位置
@@ -273,7 +295,7 @@ def batch_run(dataset_name, models_to_run=None, result_dir=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="批量执行模型比较")
-    parser.add_argument("--dataset", type=str, default="Wuhan", help="数据集名称")
+    parser.add_argument("--dataset", type=str, default="Botswana", help="数据集名称")
     parser.add_argument("--models", type=str, nargs="+", help="要运行的模型列表，不指定则运行所有模型")
     args = parser.parse_args()
 

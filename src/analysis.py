@@ -2,17 +2,13 @@ import os
 import time
 import torch
 import argparse
-import numpy as np
 import matplotlib.pyplot as plt
 from thop import profile, clever_format
-from torch.utils.tensorboard import SummaryWriter
-from ptflops import get_model_complexity_info
-from datetime import datetime
 
-from src.MambaBase.Mamba2 import Mamba2
+
 from src.MambaBase.AllinMamba import AllinMamba
 from src.utils.device import get_device
-from src.utils.paths import ROOT_DIR, ensure_dir, sanitize_filename, create_model_analysis_dir, MODEL_ANALYSIS_DIR
+from src.utils.paths import ROOT_DIR, ensure_dir, create_model_analysis_dir, MODEL_ANALYSIS_DIR
 
 # 创建模型分析专用目录
 ANALYSIS_DIR = os.path.join(ROOT_DIR, "model_analysis")
@@ -161,8 +157,7 @@ def analyze_model(model_name, model_params, input_shape, output_dir=None, batch_
     # 如果未提供输出目录，创建默认目录
     if output_dir is None:
         output_dir = create_model_analysis_dir(model_name=model_name, channels=model_params.get('input_channels', 0),
-                                               patch_size=model_params.get('patch_size', 0)
-                                               )
+                                               patch_size=model_params.get('patch_size', 0))
     else:
         # 确保提供的目录存在
         output_dir = ensure_dir(output_dir)
@@ -170,8 +165,6 @@ def analyze_model(model_name, model_params, input_shape, output_dir=None, batch_
     print(f"加载模型: {model_name}")
     if model_name == 'AllinMamba':
         model = AllinMamba(**model_params).to(device)
-    elif model_name == 'Mamba2':
-        model = Mamba2(**model_params).to(device)
     else:
         raise ValueError(f"不支持的模型: {model_name}")
 
@@ -194,36 +187,23 @@ def analyze_model(model_name, model_params, input_shape, output_dir=None, batch_
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='模型分析工具')
-    parser.add_argument('--model', type=str, default='AllinMamba', choices=['AllinMamba', 'Mamba2'],
-                        help='要分析的模型名称')
-    parser.add_argument('--channels', type=int, default=80, help='输入通道数')
+    parser.add_argument('--model', type=str, default='AllinMamba', help='要分析的模型名称')
+    parser.add_argument('--channels', type=int, default=32, help='输入通道数')
     parser.add_argument('--patch_size', type=int, default=9, help='patch大小')
+    parser.add_argument('--depth', type=int, default=24, help='模型深度')
     parser.add_argument('--output', type=str, default=None,
                         help='输出目录，若不指定则自动生成')
     parser.add_argument('--max_batch', type=int, default=64, help='最大批大小')
-    parser.add_argument('--depth', type=int, default=1, help='AllinMamba的深度')
-    parser.add_argument('--d_model', type=int, default=512, help='Mamba2的模型维度')
-    parser.add_argument('--d_state', type=int, default=64, help='Mamba2的状态维度')
 
     args = parser.parse_args()
 
     # 设置模型参数
-    model_params = {}
-    if args.model == 'AllinMamba':
-        model_params = {
-            'input_channels': args.channels,
-            'num_classes': 10,
-            'patch_size': args.patch_size,
-            'depth': args.depth
-        }
-    elif args.model == 'Mamba2':
-        model_params = {
-            'd_model': args.d_model,
-            'd_state': args.d_state,
-            'headdim': 64,
-            'chunk_size': 8,
-            'expand': 2
-        }
+    model_params = {
+        'input_channels': args.channels,
+        'num_classes': 10,
+        'patch_size': args.patch_size,
+        'depth': args.depth
+    }
 
     input_shape = (args.channels, args.patch_size, args.patch_size)
     batch_sizes = [1, 2, 4, 8, 16, 32, args.max_batch]
