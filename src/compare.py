@@ -28,7 +28,7 @@ def run_experiment(dataset_name, model_name):
         # 创建配置
         config = Config()
         config.test_mode = False
-        config.datasets = dataset_name
+        config.update_dataset_config(dataset_name)
         config.model_name = model_name
 
         # 设置保存目录

@@ -57,7 +57,7 @@ def batch_run(dataset_name, models_to_run=None, result_dir=None):
     from src.utils.paths import create_batch_result_dir
 
     config = Config()
-    config.datasets = dataset_name
+    config.update_dataset_config(dataset_name)
 
     # 修改结果目录创建逻辑
     if result_dir is None:
