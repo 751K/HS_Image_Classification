@@ -81,7 +81,8 @@ def compare_parameters_values(model_name, dataset_name, parameters_name, values,
     # 加载数据集（只加载一次）
     logger.info(f"加载数据集: {dataset_name}")
     config = Config()
-    config.datasets = dataset_name
+    config.update_dataset_config(dataset_name)
+
     config.test_mode = False
     config.model_name = model_name
 
