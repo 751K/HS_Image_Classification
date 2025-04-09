@@ -29,8 +29,6 @@ def apply_dimension_reduction(data, config, logger=None):
     elif config.dim_reduction == 'KernelPCA':
         reduced_data, _ = optimized_kernel_pca_reduction(data=data, n_components=config.n_components,
                                                          kernel=config.kpca_kernel)
-    # TODO：fix bugs
-
     elif config.dim_reduction == 'MDS':
         reduced_data, _ = optimized_mds_reduction(data=data, n_components=config.n_components, random_state=config.seed)
     elif config.dim_reduction == 'UMAP':
