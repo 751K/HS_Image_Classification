@@ -190,3 +190,90 @@ class Config:
                     print("Invalid choice. Please try again.")
             except ValueError:
                 print("Invalid input. Please enter a number.")
+
+    def update_dataset_config(self, dataset_name):
+        self.datasets = dataset_name
+        # 根据数据集名称更新其他相关配置
+        if self.datasets == 'Indian':
+            self.batch_size = 64
+            self.test_size = 0.8
+            self.num_classes = 16
+            self.mlp_dim = 32
+            self.expand = 32
+            self.d_state = 56
+            self.d_conv = 5
+            self.head_dim = 4
+            self.dropout = 0.4519834690833574
+            self.learning_rate = 0.0002684994708259589
+            self.warmup_ratio = 0.04006485849074962
+            self.cycles = 0.6310212386924017
+            self.min_lr_ratio = 0.12814831606095006
+            self.weight_decay = 0.00014499372875857687
+        elif self.datasets == 'Pavia':
+            self.batch_size = 64
+            self.test_size = 0.95
+            self.num_classes = 9
+            self.mlp_dim = 64
+            self.dropout = 0.41433006712651566
+            self.d_state = 32
+            self.cycles = 0.3092527265390655
+            self.expand = 16
+            self.learning_rate = 0.0002236164386445011
+            self.warmup_ratio = 0.04089041139272309
+            self.min_lr_ratio = 0.082177205991796
+            self.weight_decay = 1.4964546437063115e-05
+        elif self.datasets == 'Salinas':
+            self.batch_size = 32
+            self.mlp_dim = 32
+            self.dropout = 0.129859960550872
+            self.d_state = 64
+            self.cycles = 0.50
+            self.learning_rate = 0.0005144888086719854
+            self.warmup_ratio = 0.010269880544951123
+            self.min_lr_ratio = 0.1855273798968476
+            self.weight_decay = 0.00015654784836898332
+            self.test_size = 0.95
+            self.num_classes = 16
+        elif self.datasets == 'KSC':
+            self.batch_size = 32
+            self.mlp_dim = 32
+            self.dropout = 0.29942626972917785
+            self.d_state = 80
+            self.expand = 64
+            self.learning_rate = 0.000317246216733878
+            self.warmup_ratio = 0.03542440054169354
+            self.cycles = 0.8386501740444608
+            self.min_lr_ratio = 0.015853889118795032
+            self.weight_decay = 0.0006216143401161145
+            self.test_size = 0.75
+            self.num_classes = 13
+        elif self.datasets == 'Botswana':
+            self.batch_size = 16
+            self.mlp_dim = 16
+            self.dropout = 0.2654449469982165
+            self.d_state = 64
+            self.learning_rate = 0.00041645493840305884
+            self.warmup_ratio = 0.010097737876680557
+            self.cycles = 0.5004982345432989
+            self.min_lr_ratio = 0.0828985932694622
+            self.weight_decay = 0.0004960078104701533
+            self.test_size = 0.7
+            self.num_classes = 14
+        elif self.datasets == 'Wuhan':
+            self.batch_size = 64
+            self.mlp_dim = 32
+            self.dropout = 0.3365819719387231
+            self.d_state = 96
+            self.cycles = 0.9085242721331501
+            self.head_dim = 8
+            self.d_conv = 4
+            self.expand = 16
+            self.learning_rate = 0.0007742320544396837
+            self.warmup_ratio = 0.057967770097392214
+            self.min_lr_ratio = 0.19095951952778517
+            self.weight_decay = 4.546505725523656e-05
+            self.test_size = 0.95
+            self.num_classes = 22
+        else:
+            raise ValueError(f"Unsupported dataset: {self.datasets}. Supported datasets are: 'Indian', 'Pavia', "
+                             f"'Salinas', 'KSC', 'Botswana'， 'Wuhan'.")
