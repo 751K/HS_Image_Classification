@@ -55,27 +55,8 @@ def run_experiment(dataset_name, model_name):
                                                                       dim=model.dim, patch_size=config.patch_size,
                                                                       random_state=config.seed)
 
-        # 检查标签是否从0开始
-        if np.min(y_train) > 0 or np.min(y_test) > 0 or np.min(y_val) > 0:
-            logger.warning(f"标签不是从0开始！重新映射标签...")
-            # 重新映射标签到0开始
-            unique_labels = np.unique(np.concatenate([y_train, y_test, y_val]))
-            label_map = {old: new for new, old in enumerate(unique_labels)}
-
-            y_train = np.array([label_map[y] for y in y_train])
-            y_test = np.array([label_map[y] for y in y_test])
-            y_val = np.array([label_map[y] for y in y_val])
-
-            logger.info(f"标签已重新映射，范围: 0-{len(unique_labels) - 1}")
-
         # 确保模型的类别数匹配实际标签数量
-        max_label = max(np.max(y_train), np.max(y_test), np.max(y_val))
-        num_classes = max_label + 1
-
-        if hasattr(model, 'adjust_num_classes') and hasattr(model, 'num_classes'):
-            if model.num_classes <= max_label:
-                logger.warning(f"调整模型类别数: {model.num_classes} -> {num_classes}")
-                model.adjust_num_classes(num_classes)
+        num_classes = config.num_classes
 
         logger.info(f"训练集标签范围: {np.min(y_train)}-{np.max(y_train)}")
         logger.info(f"测试集标签范围: {np.min(y_test)}-{np.max(y_test)}")
@@ -192,7 +173,7 @@ def run_experiment(dataset_name, model_name):
 
 def main():
     # 设置要测试的数据集和模型
-    datasets = ['Indian', 'Pavia', 'Salinas', 'Botswana', 'Wuhan']
+    datasets = ['Indian', 'Pavia', 'Salinas', 'Botswana']
     model_name = 'AllinMamba'  # 可根据需要更改模型
 
     # 保存所有结果

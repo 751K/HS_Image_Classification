@@ -58,7 +58,7 @@ def train_model(model, train_loader, test_loader, criterion, optimizer, schedule
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
-            if i % 100 == 49:
+            if i % 50 == 49:
                 logger.info('Epoch [%d/%d], Step [%d/%d], Loss: %.4f',
                             epoch + 1, num_epochs, i + 1, len(train_loader), loss.item())
         scheduler.step()

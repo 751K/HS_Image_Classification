@@ -11,7 +11,7 @@ from datesets.Dataset import prepare_data, create_one_loader
 from src.utils.paths import get_project_root, ensure_dir, sanitize_filename
 
 
-def visualize_classification(model, data, label, device, config, logger=None):
+def visualize_classification(model, data, label, device, config, logger=None, save_dir=None):
     """
     对原始数据进行逐像素分类并生成可视化图。
 
@@ -22,13 +22,16 @@ def visualize_classification(model, data, label, device, config, logger=None):
         device (torch.device): 用于计算的设备（CPU或GPU）
         config (Config): 配置对象
         logger (logging.Logger): 日志记录器
+        save_dir (str, optional): 保存结果的目录路径，如果未提供则使用默认的Pic目录
     """
     model.eval()
     height, width, channels = data.shape
     mask = label != 0  # 创建非背景像素的掩码
 
-    X, y = prepare_data(data, label, test_size=1, dim=model.dim, patch_size=config.patch_size)
-    dataloader = create_one_loader(X, y, batch_size=128, num_workers=0, dim=model.dim)
+    X, y = prepare_data(data, label, test_size=1, dim=model.dim, patch_size=config.patch_size,
+                        random_state=config.seed)
+    # Note: 保证batch_size与训练时一致
+    dataloader = create_one_loader(X, y, batch_size=config.batch_size, num_workers=0, dim=model.dim)
 
     all_preds = []
     all_labels = []
@@ -103,16 +106,20 @@ def visualize_classification(model, data, label, device, config, logger=None):
 
     plt.tight_layout()
 
-    # 优化保存逻辑，确保跨平台兼容
-    root_dir = get_project_root()
-    pic_dir = os.path.join(root_dir, "Pic")
-    ensure_dir(pic_dir)
+    # 确定保存路径
+    if save_dir is None:
+        # 使用默认路径
+        root_dir = get_project_root()
+        save_dir = os.path.join(root_dir, "Pic")
+
+    # 确保目录存在
+    ensure_dir(save_dir)
 
     timestamp = datetime.now().strftime("%m%d_%H%M%S")
     base_filename = f"classification_visualization_{timestamp}.png"
     # 清理文件名中的非法字符
     safe_filename = sanitize_filename(base_filename)
-    save_path = os.path.join(pic_dir, safe_filename)
+    save_path = os.path.join(save_dir, safe_filename)
 
     try:
         plt.savefig(save_path, dpi=300, bbox_inches='tight')

@@ -139,7 +139,7 @@ def main():
         confusion_matrix_save_path = os.path.join(config.save_dir, "confusion_matrix.png")
         plot_and_save_confusion_matrix(all_labels, all_preds, num_classes, confusion_matrix_save_path)
         if config.vis_enable:
-            visualize_classification(model, data, labels, device, config, logger)
+            visualize_classification(model, data, labels, device, config, logger, save_dir=config.save_dir)
         writer.close()
         logger.info("程序执行完毕")
 

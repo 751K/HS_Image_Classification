@@ -100,23 +100,26 @@ def prepare_data(data: np.ndarray, labels: np.ndarray, test_size: float = None, 
     if dim not in [1, 2, 3]:
         raise ValueError("Dim must be 1, 2, or 3")
 
+    # 根据维度处理数据
     if dim == 1:
         processed_data, processed_labels = reshape_data_1D(data, labels)
     else:
-        # patch: (num_patches, bands, patch_size, patch_size)
         patches, patch_labels = create_patches(data, labels, patch_size)
         if dim == 2:
             processed_data = patches
-        else:
+        else:  # dim == 3
             processed_data = patches.reshape(patches.shape[0], 1, patches.shape[1], patch_size, patch_size)
         processed_labels = patch_labels
+
     if logger:
         logger.info(f"数据处理完成，数据形状: {processed_data.shape}, 标签形状: {processed_labels.shape}")
+
     if test_size == 1:
         return processed_data, processed_labels
     else:
         train_data, train_labels, test_data, test_labels, val_data, val_labels = (
-            spilt_three(processed_data, processed_labels, test_size=test_size,
+            spilt_three(processed_data, processed_labels,
+                        test_size=test_size,
                         random_state=random_state))
         return train_data, train_labels, test_data, test_labels, val_data, val_labels
 

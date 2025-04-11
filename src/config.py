@@ -38,7 +38,7 @@ class Config:
             self.num_epochs = 80
             # torch.autograd.set_detect_anomaly(True)
 
-        self.datasets = 'Indian'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana', 'Wuhan'
+        self.datasets = 'Botswana'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana', 'Wuhan'
 
         self.num_workers = 0
 
@@ -47,7 +47,6 @@ class Config:
         self.feature_dim = 128
         self.expand = 8
         self.depth = 1
-        self.dropout = 0.25
         self.d_conv = 16
 
         self.chunk_size = 16
@@ -162,7 +161,6 @@ class Config:
         self.patience = 20  # 早停的耐心值
         self.min_delta = 0.0005  # 被视为改进的最小变化量
 
-        # 将原来的路径生成代码替换为：
         self.save_dir = create_experiment_dir(
             self.datasets,
             self.model_name,
