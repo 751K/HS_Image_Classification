@@ -11,11 +11,6 @@ import torch.nn.init as init
 from src.utils.device import get_device
 
 
-def _weights_init(m):
-    if isinstance(m, nn.Linear) or isinstance(m, nn.Conv3d):
-        init.kaiming_normal_(m.weight)
-
-
 class Residual(nn.Module):
     def __init__(self, fn):
         super().__init__()
@@ -207,7 +202,8 @@ class STMambaBlock(nn.Module):
 
 
 class STMamba(nn.Module):
-    def __init__(self, input_channels=1, num_classes=21, depth=1, patch_size=9, mlp_dim=8, dropout=0.1, emb_dropout=0.1):
+    def __init__(self, input_channels=1, num_classes=21, depth=1, patch_size=9, mlp_dim=8, dropout=0.1,
+                 emb_dropout=0.1):
         super(STMamba, self).__init__()
         self.dim = 3
         self.conv3d_features = nn.Sequential(
@@ -255,10 +251,10 @@ if __name__ == "__main__":
     torch.manual_seed(42)
 
     # 设置模型参数
-    in_chans = 30  # 输入通道数
+    in_chans = 32  # 输入通道数
     embed_dim = 128  # 嵌入维度
-    num_classes = 21  # 类别数量
-    patch = 9  # patch大小
+    num_classes = 14  # 类别数量
+    patch = 25  # patch大小
     depth = 1  # STMambaBlock的深度
     mlp_dim = 8  # MLP隐藏层维度
     dropout = 0.1  # Dropout比率
@@ -273,11 +269,11 @@ if __name__ == "__main__":
     model = model.to(device)
 
     # 测试不同输入尺寸
-    test_sizes = [(9, 9)]
+    test_sizes = [(25, 25)]
 
     for size in test_sizes:
         H, W = size
-        x = torch.randn(4, 1, in_chans, H, W).to(device)  # 假设输入是[batch_size, in_channels, seq_len, height, width]
+        x = torch.randn(32, 1, in_chans, H, W).to(device)  # 假设输入是[batch_size, in_channels, seq_len, height, width]
 
         try:
             with torch.no_grad():
@@ -288,6 +284,7 @@ if __name__ == "__main__":
 
         except Exception as e:
             import traceback
+
             error_msg = f"程序执行过程中发生错误:\n{str(e)}\n{''.join(traceback.format_tb(e.__traceback__))}"
             print(error_msg)
 
