@@ -298,13 +298,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="比较模型在不同参数下的性能")
     parser.add_argument("--model", type=str, default="AllinMamba", help="模型名称")
     parser.add_argument("--dataset", type=str, default="Indian", help="数据集名称")
-    parser.add_argument("--parameters_name", type=str, default="feature_dim", )
+    parser.add_argument("--parameters_name", type=str, default="d_conv", )
     # parser.add_argument("--value", type=float,
     #                     default=[0.99, 0.98, 0.97, 0.96, 0.95, 0.94],
     #                     nargs='+',
     #                     help="参数值列表")
     parser.add_argument("--value", type=int,
-                        default=[32, 40, 56, 64, 80, 96, 112, 128, 160],
+                        default=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
                         nargs='+',
                         help="参数值列表")
 
