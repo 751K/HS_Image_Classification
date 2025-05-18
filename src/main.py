@@ -143,7 +143,7 @@ def main():
         if config.vis_enable:
             # visualize_classification(model, data, labels, device, config, logger, save_dir=config.save_dir)
             visualize_sep_classification(model, data, labels, device, config, logger, save_dir=config.save_dir,
-                                         name="LiteSpiraMamba")
+                                         name=config.model_name)
         writer.close()
         logger.info("程序执行完毕")
 
