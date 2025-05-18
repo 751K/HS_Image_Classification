@@ -2,7 +2,6 @@ cuml==0.6.1.post1
 cupy~=13.4.1
 einops==0.8.1
 joblib==1.4.2
-mamba_ssm==2.2.4
 matplotlib~=3.9.2
 numpy~=2.1.0
 optuna==4.2.1
