@@ -11,6 +11,7 @@ import argparse
 import time
 
 from config import Config
+from draw.vis_cls import visualize_sep_classification
 from src.utils.log import setup_logger
 from src.Train_and_Eval.model import set_seed
 from src.datesets.datasets_load import load_dataset
@@ -82,13 +83,11 @@ def batch_run(dataset_name, models_to_run=None, result_dir=None):
         "kappa": [],
         "training_time": [],
         "parameters": [],
-        "inference_time": []  # 添加推理时间字段
+        "inference_time": []
     }
 
     # 加载数据集（只加载一次）
     logger.info(f"加载数据集: {dataset_name}")
-    config = Config()
-    config.datasets = dataset_name
 
     # 为每个类别创建空列表
     for i in range(config.num_classes):
@@ -159,8 +158,8 @@ def batch_run(dataset_name, models_to_run=None, result_dir=None):
             training_time = (datetime.now() - start_time).total_seconds()
 
             # 保存最佳模型
-            model_save_path = os.path.join(config.save_dir, "best_model.pth")
-            torch.save(best_model_state_dict, model_save_path)
+            # model_save_path = os.path.join(config.save_dir, "best_model.pth")
+            # torch.save(best_model_state_dict, model_save_path)
 
             # 加载最佳模型
             model.load_state_dict(best_model_state_dict)
@@ -172,6 +171,10 @@ def batch_run(dataset_name, models_to_run=None, result_dir=None):
 
             avg_loss, oa, aa, kappa, class_accuracies = evaluate_class(model, test_loader, criterion, device, logger)
 
+            logger.info("生成分类可视化结果...")
+            visualize_sep_classification(model, data, labels, device, config, logger, save_dir=config.save_dir,
+                                         name=model_name)
+            logger.info(f"分类可视化结果已保存到: {config.save_dir}")
             # 保存结果
             model_result = {
                 "model_name": model_name,
@@ -295,8 +298,14 @@ def batch_run(dataset_name, models_to_run=None, result_dir=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="批量执行模型比较")
-    parser.add_argument("--dataset", type=str, default="Botswana", help="数据集名称")
-    parser.add_argument("--models", type=str, nargs="+", help="要运行的模型列表，不指定则运行所有模型")
+    parser.add_argument("--dataset", type=str, default="Indian", help="数据集名称")
+    # parser.add_argument("--models", type=str, nargs="+", help="要运行的模型列表，不指定则运行所有模型")
+    parser.add_argument("--models", type=str, nargs="+",
+                        choices=["ResNet2D", "HybridSN", "SSFTT", "SFT", "MambaHSI", "SSMamba", "STMamba",
+                                 "AllinMamba"],
+                        default=["ResNet2D", "HybridSN", "SSFTT", "SFT", "MambaHSI", "SSMamba", "STMamba",
+                                 "AllinMamba"],
+                        help="要运行的模型列表，只能从预设的8个模型中选择")
     args = parser.parse_args()
 
     batch_run(args.dataset, args.models)
