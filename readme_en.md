@@ -171,4 +171,4 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 ## 11. Acknowledgement
 
 Thanks to myself and all future contributors.
-
+Thanks to ChatGPT and Claude for their assistance.
