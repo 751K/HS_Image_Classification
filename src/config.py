@@ -11,7 +11,7 @@ from src.utils.paths import create_experiment_dir
 
 class Config:
     def __init__(self):
-        self.test_mode = True
+        self.test_mode = False
 
         # 获取调用此类的文件名
         caller_frame = inspect.stack()[1]
@@ -20,7 +20,7 @@ class Config:
         torch.backends.cudnn.benchmark = True
 
         self.num_epochs = 80
-        self.vis_enable = False  # 是否可视化
+        self.vis_enable = True  # 是否可视化
 
         self.device = get_device()
 
@@ -38,7 +38,7 @@ class Config:
             self.num_epochs = 80
             # torch.autograd.set_detect_anomaly(True)
 
-        self.datasets = 'Botswana'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana', 'Wuhan'
+        self.datasets = 'Wuhan'  # 可选:'Indian', 'Pavia', 'Salinas', 'KSC', 'Botswana', 'Wuhan'
 
         self.num_workers = 0
 
@@ -48,6 +48,8 @@ class Config:
         self.expand = 8
         self.depth = 1
         self.d_conv = 16
+
+        self.patch_size = 9
 
         self.chunk_size = 16
 
@@ -82,12 +84,13 @@ class Config:
         elif self.datasets == 'Salinas':
             self.batch_size = 32
             self.mlp_dim = 32
-            self.dropout = 0.129859960550872
+            self.expand = 16
+            self.dropout = 0.25
             self.d_state = 64
             self.cycles = 0.50
             self.learning_rate = 0.0005144888086719854
             self.warmup_ratio = 0.010269880544951123
-            self.min_lr_ratio = 0.1855273798968476
+            self.min_lr_ratio = 0.1
             self.weight_decay = 0.00015654784836898332
             self.test_size = 0.95
             self.num_classes = 16
@@ -105,7 +108,7 @@ class Config:
             self.test_size = 0.75
             self.num_classes = 13
         elif self.datasets == 'Botswana':
-            self.batch_size = 16
+            self.batch_size = 32
             self.mlp_dim = 16
             self.dropout = 0.2654449469982165
             self.d_state = 64
@@ -138,8 +141,6 @@ class Config:
         if self.multi_gpu_flag:
             self.batch_size = self.batch_size * torch.cuda.device_count()
             self.learning_rate = self.learning_rate * torch.cuda.device_count()
-
-        self.patch_size = 9
 
         self.resume_checkpoint = None
         # self.resume_checkpoint = '../results/Salinas_AllinMamba_0309_1804/checkpoint_epoch_40.pth'
