@@ -9,6 +9,8 @@ import numpy as np
 import torch.optim as optim
 
 from torch.utils.tensorboard import SummaryWriter
+
+from draw.vis_cls import visualize_sep_classification
 from src.Train_and_Eval.learing_rate import WarmupCosineSchedule
 from src.utils.log import setup_logger, log_training_details
 from src.Train_and_Eval.model import save_test_results, set_seed
@@ -139,7 +141,9 @@ def main():
         confusion_matrix_save_path = os.path.join(config.save_dir, "confusion_matrix.png")
         plot_and_save_confusion_matrix(all_labels, all_preds, num_classes, confusion_matrix_save_path)
         if config.vis_enable:
-            visualize_classification(model, data, labels, device, config, logger, save_dir=config.save_dir)
+            # visualize_classification(model, data, labels, device, config, logger, save_dir=config.save_dir)
+            visualize_sep_classification(model, data, labels, device, config, logger, save_dir=config.save_dir,
+                                         name="LiteSpiraMamba")
         writer.close()
         logger.info("程序执行完毕")
 
